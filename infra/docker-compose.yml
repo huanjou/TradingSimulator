@@ -65,7 +65,57 @@ services:
       retries: 5
 
   # ==========================================
-  # REVERSE PROXY (API INGRESS)
+  # Наблюдаемость
+  # ==========================================
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: exchange_jaeger
+    ports:
+      - "16686:16686" # Web UI
+      - "4317:4317" # OTLP gRPC receiver
+    networks:
+      - exchange_net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: exchange_otel_collector
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "8889:8889" # Prometheus метрики
+    depends_on:
+      - jaeger
+    networks:
+      - exchange_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: exchange_prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - exchange_net
+    depends_on:
+      - otel-collector
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: exchange_grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - exchange_net
+    depends_on:
+      - prometheus
+
+  # ==========================================
+  # Прокси
   # ==========================================
   nginx:
     image: nginx:alpine
@@ -83,6 +133,23 @@ services:
   # ==========================================
   # МИКРОСЕРВИСЫ
   # ==========================================
+  api-gateway-migrations:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+      target: development
+    container_name: exchange_api_gateway_migrations
+    command: [ "poetry", "run", "alembic", "upgrade", "head" ]
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres:5432/ledger_db
+    volumes:
+      - ../services/api-gateway:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - exchange_net
+
   api-gateway:
     build:
       context: ../services/api-gateway
@@ -94,10 +161,14 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres:5432/ledger_db
       - ENV=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
-      - ../services/api-gateway/app:/app/app
+      - ../services/api-gateway:/app
     depends_on:
+      api-gateway-migrations:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
@@ -126,3 +197,5 @@ networks:
 volumes:
   pg_data:
   kafka_data:
+  prometheus_data:
+  grafana_data:

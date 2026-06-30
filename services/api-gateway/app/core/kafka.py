@@ -1,0 +1,41 @@
+import json
+import logging
+from typing import Any
+
+from aiokafka import AIOKafkaProducer
+
+from app.core.config import get_settings
+
+settings = get_settings()
+logger = logging.getLogger(__name__)
+
+
+class KafkaProducerClient:
+    def __init__(self):
+        self.producer = None
+
+    async def start(self):
+        """Initialize the Kafka producer and connect to the broker."""
+        self.producer = AIOKafkaProducer(
+            bootstrap_servers=settings.KAFKA_BROKER,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+        )
+        await self.producer.start()
+        logger.info("Kafka Producer started successfully.")
+
+    async def stop(self):
+        """Stop the Kafka producer and flush pending messages."""
+        if self.producer:
+            await self.producer.stop()
+            logger.info("Kafka Producer stopped.")
+
+    async def send_event(self, topic: str, value: dict[str, Any]):
+        """Publish an event to a specific Kafka topic."""
+        if not self.producer:
+            raise RuntimeError("Kafka Producer is not initialized. Call start() first.")
+        await self.producer.send_and_wait(topic, value)
+        logger.debug(f"Event published to topic {topic}")
+
+
+# Global instance
+kafka_client = KafkaProducerClient()
