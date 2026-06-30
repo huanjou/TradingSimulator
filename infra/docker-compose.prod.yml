@@ -1,0 +1,46 @@
+services:
+  # ==========================================
+  # ИНФРАСТРУКТУРА
+  # ==========================================
+  postgres:
+    restart: always
+
+  kafka:
+    restart: always
+
+  redis:
+    restart: always
+
+  nginx:
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+
+  # ==========================================
+  # МИКРОСЕРВИСЫ (Переопределение для Production)
+  # ==========================================
+  api-gateway:
+    build:
+      target: production
+    restart: always
+    # Очищаем проброс кода
+    volumes: !reset []
+    environment:
+      - ENV=production
+      - LOG_LEVEL=INFO
+
+  frontend:
+    build:
+      target: production
+    restart: always
+    # Очищаем проброс кода
+    volumes: !reset []
+    environment:
+      - NODE_ENV=production
+
+  matching-engine:
+    restart: always
+
+  ledger:
+    restart: always
