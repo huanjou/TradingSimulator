@@ -1,4 +1,4 @@
-.PHONY: up down build prod-up prod-build logs clean lint setup
+.PHONY: up down build prod-up prod-build logs clean lint setup test
 
 # ==========================================
 # DEVELOPMENT
@@ -14,6 +14,9 @@ build:
 
 logs:
 	cd infra && docker compose logs -f
+
+test:
+	cd infra && docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner
 
 # ==========================================
 # PRODUCTION
