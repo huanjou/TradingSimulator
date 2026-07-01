@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем Poetry
-ENV POETRY_VERSION=1.7.1
+ENV POETRY_VERSION=1.8.3
 RUN pip install "poetry==$POETRY_VERSION"
 
 # Создаем виртуальное окружение
@@ -49,7 +49,7 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Устанавливаем Poetry для dev-окружения
-ENV POETRY_VERSION=1.7.1
+ENV POETRY_VERSION=1.8.3
 RUN pip install "poetry==$POETRY_VERSION"
 
 # Доустанавливаем инструменты для разработки (dev-зависимости из poetry)
