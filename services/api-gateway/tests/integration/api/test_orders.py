@@ -141,3 +141,43 @@ async def test_create_order_publishes_to_kafka(client, user_factory):
         assert kafka_payload["quantity"] == 1.5
         assert kafka_payload["price"] == 40000.0
         assert kafka_payload["status"] == "PENDING"
+
+
+import asyncio
+
+
+@pytest.mark.asyncio
+async def test_e2e_create_and_get_order(client, user_factory):
+    """E2E Flow: Create order -> Kafka -> Ledger Writer -> DB -> Query Service -> Gateway"""
+    user = await user_factory()
+    payload = {
+        "user_id": str(user.id),
+        "symbol": "BTC/USD",
+        "side": "BUY",
+        "order_type": "LIMIT",
+        "quantity": 1.0,
+        "price": 50000.0,
+    }
+
+    # 1. Create order
+    create_response = await client.post("/api/v1/orders/", json=payload)
+    assert create_response.status_code == 202
+    order_data = create_response.json()
+    order_id = order_data["id"]
+
+    # 2. Poll for order via GET (wait for ledger-writer to process Kafka msg)
+    max_retries = 10
+    found = False
+    for i in range(max_retries):
+        await asyncio.sleep(0.5)
+        get_response = await client.get(f"/api/v1/orders/{order_id}")
+        if get_response.status_code == 200:
+            found = True
+            fetched_order = get_response.json()
+            assert fetched_order["id"] == order_id
+            assert fetched_order["status"] == "PENDING"
+            break
+
+    assert (
+        found
+    ), "Order was not saved by ledger-writer or query-service failed to retrieve it."

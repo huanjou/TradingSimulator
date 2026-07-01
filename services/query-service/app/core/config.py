@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AnyUrl
+from pydantic import AnyUrl, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ENV: str = "development"
     LOG_LEVEL: str = "INFO"
+
+    # Database
+    POSTGRES_URL: PostgresDsn
 
     # Message Broker
     KAFKA_BROKER: str = "kafka:9092"

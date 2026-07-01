@@ -5,8 +5,7 @@ from fastapi import HTTPException, status
 
 from app.core.kafka import kafka_client
 from app.domain.order import OrderEntity
-from app.models.order import OrderStatusChoice
-from app.schemas.order import OrderCreate
+from app.schemas.order import OrderCreate, OrderStatusChoice
 
 logger = logging.getLogger(__name__)
 

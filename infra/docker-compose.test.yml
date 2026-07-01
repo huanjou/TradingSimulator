@@ -1,14 +1,43 @@
 version: '3.8'
 
 services:
-  test-db:
-    image: postgres:15-alpine
+  postgres-primary:
+    image: bitnami/postgresql:latest
     environment:
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_password
-      POSTGRES_DB: test_db
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_password
+      POSTGRESQL_USERNAME: test_user
+      POSTGRESQL_PASSWORD: test_password
+      POSTGRESQL_DATABASE: test_db
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U test_user -d test_db" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  postgres-replica:
+    image: bitnami/postgresql:latest
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_password
+      POSTGRESQL_MASTER_HOST: postgres-primary
+      POSTGRESQL_USERNAME: test_user
+      POSTGRESQL_PASSWORD: test_password
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U test_user -d postgres" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 2s
       timeout: 5s
       retries: 10
@@ -39,20 +68,16 @@ services:
       dockerfile: Dockerfile
       target: development
     environment:
-      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
       - KAFKA_BROKER=test-kafka:9092
+      - QUERY_SERVICE_URL=http://query-service:8000
       - TESTING=1
     depends_on:
-      test-db:
-        condition: service_healthy
       test-kafka:
         condition: service_healthy
     volumes:
       - ../services/api-gateway:/app
-    # 1. Запускаем миграции Alembic на тестовой БД
-    # 2. Запускаем pytest
     command: >
-      bash -c "alembic upgrade head && pytest -v"
+      bash -c "pytest -v"
 
   trading-engine:
     build:
@@ -66,3 +91,38 @@ services:
         condition: service_healthy
     volumes:
       - ../services/trading-engine:/app
+
+  ledger-writer:
+    build:
+      context: ../services/ledger-writer
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@postgres-primary:5432/test_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/ledger-writer:/app
+
+  query-service:
+    build:
+      context: ../services/query-service
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@postgres-replica:5432/test_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres-replica:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../services/query-service:/app
