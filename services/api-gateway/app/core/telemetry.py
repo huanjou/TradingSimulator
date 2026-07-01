@@ -16,6 +16,8 @@ def setup_opentelemetry(app: FastAPI):
     """
     Configures OpenTelemetry Tracing and Metrics to export to OTel Collector.
     """
+    if os.getenv("TESTING") == "1":
+        return
     resource = Resource(attributes={SERVICE_NAME: "api-gateway"})
 
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")
@@ -34,4 +36,8 @@ def setup_opentelemetry(app: FastAPI):
     metrics.set_meter_provider(meter_provider)
 
     # Instrument FastAPI to automatically track requests
-    FastAPIInstrumentor.instrument_app(app)
+    try:
+        FastAPIInstrumentor.instrument_app(app)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to instrument FastAPI app: %s", e)
