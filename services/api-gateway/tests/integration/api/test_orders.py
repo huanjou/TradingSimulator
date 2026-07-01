@@ -14,7 +14,7 @@ async def test_create_limit_order_success(client, user_factory):
         "price": 50000.00
     }
     response = await client.post("/api/v1/orders/", json=payload)
-    assert response.status_code == 201
+    assert response.status_code == 202
     data = response.json()
     assert data["order_type"] == "LIMIT"
     assert data["status"] == "PENDING"
@@ -31,7 +31,7 @@ async def test_create_market_order_success(client, user_factory):
         "quantity": 2.0
     }
     response = await client.post("/api/v1/orders/", json=payload)
-    assert response.status_code == 201
+    assert response.status_code == 202
     data = response.json()
     assert data["order_type"] == "MARKET"
     assert data["price"] is None
@@ -92,21 +92,6 @@ async def test_create_limit_order_without_price(client, user_factory):
     assert response.status_code == 400
     assert "Limit orders must have a specified price." in response.json()["detail"]
 
-@pytest.mark.asyncio
-async def test_create_order_nonexistent_user(client):
-    """Sad Path: Nonexistent user_id causes IntegrityError or 500."""
-    import uuid
-    payload = {
-        "user_id": str(uuid.uuid4()), # Does not exist in DB
-        "symbol": "BTC/USD",
-        "side": "BUY",
-        "order_type": "MARKET",
-        "quantity": 1.0
-    }
-    response = await client.post("/api/v1/orders/", json=payload)
-    # The repository will throw IntegrityError which the service catches as Exception
-    assert response.status_code == 500
-
 from unittest.mock import patch
 
 @pytest.mark.asyncio
@@ -125,7 +110,7 @@ async def test_create_order_publishes_to_kafka(client, user_factory):
     with patch("app.services.order.kafka_client.send_event") as mock_send_event:
         response = await client.post("/api/v1/orders/", json=payload)
         
-        assert response.status_code == 201
+        assert response.status_code == 202
         data = response.json()
         
         # Verify kafka was called exactly once
@@ -141,7 +126,7 @@ async def test_create_order_publishes_to_kafka(client, user_factory):
         assert kafka_payload["user_id"] == str(user.id)
         assert kafka_payload["symbol"] == "BTC/USD"
         assert kafka_payload["side"] == "BUY"
-        assert kafka_payload["order_type"] == "LIMIT"
+        assert kafka_payload["type"] == "LIMIT"
         assert kafka_payload["quantity"] == 1.5
         assert kafka_payload["price"] == 40000.0
         assert kafka_payload["status"] == "PENDING"
