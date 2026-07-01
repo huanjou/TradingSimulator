@@ -53,3 +53,16 @@ services:
     # 2. Запускаем pytest
     command: >
       bash -c "alembic upgrade head && pytest -v"
+
+  trading-engine:
+    build:
+      context: ../services/trading-engine
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/trading-engine:/app

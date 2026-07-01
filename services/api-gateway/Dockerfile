@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем Poetry
-ENV POETRY_VERSION=1.8.3
+ENV POETRY_VERSION=2.1.1
 RUN pip install "poetry==$POETRY_VERSION"
 
 # Создаем виртуальное окружение
@@ -36,7 +36,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY pyproject.toml poetry.lock* ./
 
 # Устанавливаем только основные зависимости (без dev)
-RUN poetry install --only main --no-root
+RUN poetry lock && poetry install --no-root
 
 # ==========================================
 # 3. DEV Build
@@ -49,12 +49,12 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Устанавливаем Poetry для dev-окружения
-ENV POETRY_VERSION=1.8.3
+ENV POETRY_VERSION=2.1.1
 RUN pip install "poetry==$POETRY_VERSION"
 
 # Доустанавливаем инструменты для разработки (dev-зависимости из poetry)
 COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-root
+RUN poetry lock && poetry install --no-root
 
 WORKDIR /app
 # Запускаем uvicorn с флагом --reload.
