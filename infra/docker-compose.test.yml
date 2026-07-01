@@ -41,6 +41,7 @@ services:
     environment:
       - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
       - KAFKA_BROKER=test-kafka:9092
+      - TESTING=1
     depends_on:
       test-db:
         condition: service_healthy
