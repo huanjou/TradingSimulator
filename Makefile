@@ -18,6 +18,9 @@ logs:
 test:
 	cd infra && docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner
 
+load-test:
+	cd infra && docker compose -f docker-compose.load.yml up --build --abort-on-container-exit --exit-code-from k6
+
 # ==========================================
 # PRODUCTION
 # ==========================================
