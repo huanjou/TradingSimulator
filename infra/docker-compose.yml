@@ -2,17 +2,20 @@ services:
   # ==========================================
   # ИНФРАСТРУКТУРА
   # ==========================================
-  postgres:
-    image: postgres:15-alpine
-    container_name: exchange_db
+  postgres-primary:
+    image: bitnami/postgresql:latest
+    container_name: exchange_postgres_primary
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: ledger_db
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_password
+      POSTGRESQL_USERNAME: admin
+      POSTGRESQL_PASSWORD: password
+      POSTGRESQL_DATABASE: ledger_db
     ports:
       - "5432:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg_primary_data:/bitnami/postgresql
     networks:
       - exchange_net
     healthcheck:
@@ -21,10 +24,35 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-replica:
+    image: bitnami/postgresql:latest
+    container_name: exchange_postgres_replica
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: repl_user
+      POSTGRESQL_REPLICATION_PASSWORD: repl_password
+      POSTGRESQL_MASTER_HOST: postgres-primary
+      POSTGRESQL_USERNAME: admin
+      POSTGRESQL_PASSWORD: password
+    ports:
+      - "5433:5432"
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    volumes:
+      - pg_replica_data:/bitnami/postgresql
+    networks:
+      - exchange_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   kafka:
-    image: apache/kafka:4.3.1
-    container_name: exchange_kafka
+    image: apache/kafka:3.7.0
     user: "root"
+    container_name: exchange_kafka
     ports:
       - "9092:9092"
     environment:
@@ -133,19 +161,19 @@ services:
   # ==========================================
   # МИКРОСЕРВИСЫ
   # ==========================================
-  api-gateway-migrations:
+  ledger-migrations:
     build:
-      context: ../services/api-gateway
+      context: ../services/ledger-writer
       dockerfile: Dockerfile
       target: development
-    container_name: exchange_api_gateway_migrations
+    container_name: exchange_ledger_migrations
     command: [ "poetry", "run", "alembic", "upgrade", "head" ]
     environment:
-      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres:5432/ledger_db
+      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
     volumes:
-      - ../services/api-gateway:/app
+      - ../services/ledger-writer:/app
     depends_on:
-      postgres:
+      postgres-primary:
         condition: service_healthy
     networks:
       - exchange_net
@@ -160,19 +188,81 @@ services:
       - "8000:8000"
     environment:
       - KAFKA_BROKER=kafka:9092
-      - REDIS_URL=redis://redis:6379
-      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres:5432/ledger_db
+      - QUERY_SERVICE_URL=http://query-service:8000
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
       - ../services/api-gateway:/app
     depends_on:
-      api-gateway-migrations:
-        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+    networks:
+      - exchange_net
+
+  ledger-writer:
+    build:
+      context: ../services/ledger-writer
+      dockerfile: Dockerfile
+      target: development
+    container_name: exchange_ledger_writer
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENV=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      ledger-migrations:
+        condition: service_completed_successfully
+      postgres-primary:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/ledger-writer:/app
+    networks:
+      - exchange_net
+
+  query-service:
+    build:
+      context: ../services/query-service
+      dockerfile: Dockerfile
+      target: development
+    container_name: exchange_query_service
+    ports:
+      - "8001:8000"
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-replica:5432/ledger_db
+      - REDIS_URL=redis://redis:6379/0
+      - ENV=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      postgres-replica:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../services/query-service:/app
+    networks:
+      - exchange_net
+
+  trading-engine:
+    build:
+      context: ../services/trading-engine
+      dockerfile: Dockerfile
+      target: development
+    container_name: exchange_trading_engine
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - ENV=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/trading-engine:/app
     networks:
       - exchange_net
 
@@ -195,7 +285,8 @@ networks:
     driver: bridge
 
 volumes:
-  pg_data:
+  pg_primary_data:
+  pg_replica_data:
   kafka_data:
   prometheus_data:
   grafana_data:

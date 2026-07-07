@@ -1,3 +1,4 @@
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.order import OrderEntity
@@ -8,14 +9,18 @@ from app.repositories.base import BaseRepository
 class OrderRepository(BaseRepository[DbOrder]):
     def _to_domain(self, db_obj: DbOrder) -> OrderEntity:
         return OrderEntity(
-            id=db_obj.id,
-            user_id=db_obj.user_id,
+            id=str(db_obj.id),
+            user_id=str(db_obj.user_id),
             symbol=db_obj.symbol,
-            side=db_obj.side,
-            order_type=db_obj.order_type,
+            side=db_obj.side.value if hasattr(db_obj.side, "value") else db_obj.side,
+            order_type=db_obj.order_type.value
+            if hasattr(db_obj.order_type, "value")
+            else db_obj.order_type,
             quantity=db_obj.quantity,
             price=db_obj.price,
-            status=db_obj.status,
+            status=db_obj.status.value
+            if hasattr(db_obj.status, "value")
+            else db_obj.status,
             created_at=db_obj.created_at,
             updated_at=db_obj.updated_at,
         )
@@ -36,8 +41,33 @@ class OrderRepository(BaseRepository[DbOrder]):
         await db.commit()
         await db.refresh(db_obj)
 
-        # Convert back to Domain Entity
         return self._to_domain(db_obj)
+
+    async def upsert(self, db: AsyncSession, *, obj_in: OrderEntity) -> None:
+        """
+        Upsert an order (Insert, or Update status/price if exists).
+        """
+        stmt = (
+            insert(DbOrder)
+            .values(
+                id=obj_in.id,
+                user_id=obj_in.user_id,
+                symbol=obj_in.symbol,
+                side=obj_in.side,
+                order_type=obj_in.order_type,
+                quantity=obj_in.quantity,
+                price=obj_in.price,
+                status=obj_in.status,
+            )
+            .on_conflict_do_update(
+                index_elements=["id"],
+                set_=dict(
+                    status=obj_in.status,
+                    # update price/quantity if trades occur
+                ),
+            )
+        )
+        await db.execute(stmt)
 
 
 order_repo = OrderRepository(DbOrder)
