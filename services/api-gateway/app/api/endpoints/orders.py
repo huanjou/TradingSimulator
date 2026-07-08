@@ -20,25 +20,42 @@ async def create_order(order_in: OrderCreate) -> Any:
 
 
 import os
-
-import httpx
+import grpc
 from fastapi import HTTPException
+from app.grpc_stubs import orders_pb2, orders_pb2_grpc
 
-QUERY_SERVICE_URL = os.getenv("QUERY_SERVICE_URL", "http://query-service:8000")
+QUERY_SERVICE_GRPC_URL = os.getenv("QUERY_SERVICE_GRPC_URL", "query-service:50051")
 
 
 @router.get("/{order_id}")
 async def get_order(order_id: str) -> Any:
     """
-    Get order by ID by calling the internal query-service.
+    Get order by ID by calling the internal query-service via gRPC.
     """
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(f"{QUERY_SERVICE_URL}/api/v1/orders/{order_id}")
-            if response.status_code == 404:
+    try:
+        async with grpc.aio.insecure_channel(QUERY_SERVICE_GRPC_URL) as channel:
+            stub = orders_pb2_grpc.OrderQueryServiceStub(channel)
+            request = orders_pb2.GetOrderRequest(order_id=order_id)
+            response = await stub.GetOrder(request)
+            
+            # Since gRPC returns default values for missing strings, we check if ID is empty
+            if not response.id:
                 raise HTTPException(status_code=404, detail="Order not found")
-            response.raise_for_status()
-            return response.json()
-        except httpx.RequestError as e:
-            logger.error(f"Error calling query-service: {e}")
-            raise HTTPException(status_code=503, detail="Query service unavailable")
+                
+            return {
+                "id": response.id,
+                "user_id": response.user_id,
+                "symbol": response.symbol,
+                "side": response.side,
+                "order_type": response.order_type,
+                "quantity": response.quantity,
+                "price": response.price,
+                "status": response.status,
+                "created_at": response.created_at,
+                "updated_at": response.updated_at,
+            }
+    except grpc.aio.AioRpcError as e:
+        logger.error(f"gRPC error calling query-service: {e.details()}")
+        if e.code() == grpc.StatusCode.NOT_FOUND:
+            raise HTTPException(status_code=404, detail="Order not found")
+        raise HTTPException(status_code=503, detail="Query service unavailable")

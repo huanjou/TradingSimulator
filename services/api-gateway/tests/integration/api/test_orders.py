@@ -137,7 +137,7 @@ async def test_create_order_publishes_to_kafka(client, user_factory):
         assert kafka_payload["user_id"] == str(user.id)
         assert kafka_payload["symbol"] == "BTC/USD"
         assert kafka_payload["side"] == "BUY"
-        assert kafka_payload["type"] == "LIMIT"
+        assert kafka_payload["order_type"] == "LIMIT"
         assert kafka_payload["quantity"] == 1.5
         assert kafka_payload["price"] == 40000.0
         assert kafka_payload["status"] == "PENDING"

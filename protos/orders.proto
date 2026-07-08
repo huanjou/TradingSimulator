@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package orders;
+
+// Service definition for internal order queries
+service OrderQueryService {
+    rpc GetOrder(GetOrderRequest) returns (OrderResponse);
+}
+
+// Request containing the ID of the order to fetch
+message GetOrderRequest {
+    string order_id = 1;
+}
+
+// Full response for an order
+message OrderResponse {
+    string id = 1;
+    string user_id = 2;
+    string symbol = 3;
+    string side = 4;
+    string order_type = 5;
+    double quantity = 6;
+    double price = 7;
+    string status = 8;
+    string created_at = 9;
+    string updated_at = 10;
+}

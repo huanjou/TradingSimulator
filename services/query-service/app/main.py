@@ -1,12 +1,27 @@
 import logging
+import asyncio
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from app.api.router import api_router
 from app.db.base import *  # This ensures all models are registered
+from app.grpc_server import serve_grpc
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Query Service", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start gRPC server in the background
+    grpc_task = asyncio.create_task(serve_grpc())
+    yield
+    # Stop gRPC server? (In production we should gracefully shut down)
+    grpc_task.cancel()
+    try:
+        await grpc_task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(title="Query Service", version="0.1.0", lifespan=lifespan)
 
 app.include_router(api_router, prefix="/api/v1")
