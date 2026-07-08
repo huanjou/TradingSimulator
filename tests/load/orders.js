@@ -14,7 +14,7 @@ export const options = {
   },
 };
 
-const BASE_URL = "http://api-gateway:8000/api/v1/orders";
+const BASE_URL = __ENV.API_URL || "http://exchange_api_gateway:8000/api/v1/orders";
 
 export default function () {
   const userId = uuidv4();

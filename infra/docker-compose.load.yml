@@ -48,8 +48,7 @@ services:
         condition: service_healthy
       test-kafka:
         condition: service_healthy
-    command: >
-      bash -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/')\""]
       interval: 5s
@@ -60,7 +59,9 @@ services:
     image: grafana/k6:latest
     volumes:
       - ../tests/load:/scripts
-    command: run /scripts/health.js
+    environment:
+      - API_URL=http://api-gateway:8000/api/v1/orders
+    command: run /scripts/orders.js
     depends_on:
       api-gateway:
         condition: service_healthy
