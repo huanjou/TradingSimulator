@@ -34,7 +34,7 @@ class OrderService:
                     "user_id": str(domain_order.user_id),
                     "symbol": domain_order.symbol,
                     "side": domain_order.side.value,
-                    "type": domain_order.order_type.value,
+                    "order_type": domain_order.order_type.value,
                     "quantity": domain_order.quantity,
                     "price": domain_order.price,
                     "status": domain_order.status.value,

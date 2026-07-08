@@ -18,7 +18,14 @@ async def process_orders(messages):
     async with AsyncSessionLocal() as session:
         try:
             for msg in messages:
-                data = json.loads(msg.value.decode("utf-8"))
+                try:
+                    data = json.loads(msg.value.decode("utf-8"))
+                except json.JSONDecodeError as e:
+                    logger.error(f"Poison pill detected: invalid JSON. Skipping message. Error: {e}")
+                    continue
+                except Exception as e:
+                    logger.error(f"Poison pill detected: malformed message. Skipping. Error: {e}")
+                    continue
 
                 # 1. Create Domain Entities
                 user_entity = UserEntity(
