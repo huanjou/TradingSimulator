@@ -17,6 +17,7 @@ class OrderRepository(BaseRepository[DbOrder]):
             if hasattr(db_obj.order_type, "value")
             else db_obj.order_type,
             quantity=db_obj.quantity,
+            filled_quantity=db_obj.filled_quantity,
             price=db_obj.price,
             status=db_obj.status.value
             if hasattr(db_obj.status, "value")
@@ -34,6 +35,7 @@ class OrderRepository(BaseRepository[DbOrder]):
             side=obj_in.side,
             order_type=obj_in.order_type,
             quantity=obj_in.quantity,
+            filled_quantity=obj_in.filled_quantity,
             price=obj_in.price,
             status=obj_in.status,
         )
@@ -56,6 +58,7 @@ class OrderRepository(BaseRepository[DbOrder]):
                 side=obj_in.side,
                 order_type=obj_in.order_type,
                 quantity=obj_in.quantity,
+                filled_quantity=obj_in.filled_quantity,
                 price=obj_in.price,
                 status=obj_in.status,
             )
@@ -63,9 +66,18 @@ class OrderRepository(BaseRepository[DbOrder]):
                 index_elements=["id"],
                 set_=dict(
                     status=obj_in.status,
-                    # update price/quantity if trades occur
+                    filled_quantity=obj_in.filled_quantity,
                 ),
             )
+        )
+        await db.execute(stmt)
+
+    async def update_status(self, db: AsyncSession, order_id: str, status: str, filled_quantity: float) -> None:
+        from sqlalchemy import update
+        stmt = (
+            update(DbOrder)
+            .where(DbOrder.id == order_id)
+            .values(status=status, filled_quantity=filled_quantity)
         )
         await db.execute(stmt)
 

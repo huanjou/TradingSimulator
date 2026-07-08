@@ -10,6 +10,7 @@ class OrderEntity(BaseModel):
     side: str
     order_type: str
     quantity: float
+    filled_quantity: float = 0.0
     status: str
     price: float | None = None
     created_at: datetime | None = None

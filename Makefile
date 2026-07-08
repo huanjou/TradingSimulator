@@ -31,6 +31,10 @@ test-gateway:
 test-query:
 	docker exec -e POSTGRES_URL="postgresql+asyncpg://admin:password@postgres-replica:5432/ledger_db" -e REDIS_URL="redis://redis:6379/0" exchange_query_service poetry run pytest $(ARGS)
 
+# Быстрый запуск тестов для trading-engine (внутри уже работающего контейнера)
+test-engine:
+	docker exec -e KAFKA_BROKER="kafka:9092" exchange_trading_engine poetry run pytest $(ARGS)
+
 seed:
 	cd services/api-gateway && poetry run python -m scripts.seed
 

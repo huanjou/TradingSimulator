@@ -22,7 +22,8 @@ class OrderTypeChoice(str, enum.Enum):
 class OrderStatusChoice(str, enum.Enum):
     PENDING = "PENDING"
     CANCELED = "CANCELED"
-    EXECUTED = "EXECUTED"
+    FILLED = "FILLED"
+    PARTIALLY_FILLED = "PARTIALLY_FILLED"
     REJECTED = "REJECTED"
 
 
@@ -36,6 +37,7 @@ class Order(Base):
     side = Column(Enum(SideChoice), nullable=False)
     order_type = Column(Enum(OrderTypeChoice), nullable=False)
     quantity = Column(Float, nullable=False)
+    filled_quantity = Column(Float, nullable=False, default=0.0)
     price = Column(Float, nullable=True)  # Optional for MARKET orders
 
     status = Column(

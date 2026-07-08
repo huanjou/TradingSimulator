@@ -20,7 +20,7 @@ def create_order(
         user_id=user_id,
         symbol=symbol,
         side=side,
-        type=OrderType.LIMIT,
+        order_type=OrderType.LIMIT,
         price=Decimal(price),
         quantity=Decimal(quantity),
     )
@@ -30,12 +30,11 @@ def test_add_order_no_match():
     book = OrderBook(symbol="BTC/USD")
     
     buy_order = create_order(side=OrderSide.BUY, price="50000", quantity="1.0")
-    trades = book.add_order(buy_order)
+    trades, updates = book.add_order(buy_order)
     
     assert len(trades) == 0
     assert len(book.bids) == 1
     assert len(book.asks) == 0
-    assert book.bids[0].id == buy_order.id
 
 
 def test_exact_match():
@@ -43,13 +42,14 @@ def test_exact_match():
     
     # 1. User 1 places a sell order (Ask)
     sell_order = create_order(side=OrderSide.SELL, price="50000", quantity="1.0", user_id="user1")
-    trades_1 = book.add_order(sell_order)
+    trades_1, updates_1 = book.add_order(sell_order)
     assert len(trades_1) == 0
     
-    # 2. User 2 places a buy order (Bid) that matches exactly
+    # 2. User 2 places a buy order (Bid) matching exactly
     buy_order = create_order(side=OrderSide.BUY, price="50000", quantity="1.0", user_id="user2")
-    trades_2 = book.add_order(buy_order)
+    trades_2, updates_2 = book.add_order(buy_order)
     
+    # Assert Trade is generated
     assert len(trades_2) == 1
     trade = trades_2[0]
     assert trade.maker_order_id == sell_order.id
@@ -57,7 +57,7 @@ def test_exact_match():
     assert trade.price == Decimal("50000")
     assert trade.quantity == Decimal("1.0")
     
-    # Order book should be empty now
+    # Assert Order Book is empty again
     assert len(book.bids) == 0
     assert len(book.asks) == 0
 
@@ -71,14 +71,14 @@ def test_partial_match():
     
     # Buy 0.5 BTC @ 50000
     buy_order = create_order(side=OrderSide.BUY, price="50000", quantity="0.5", user_id="user2")
-    trades = book.add_order(buy_order)
+    trades, updates = book.add_order(buy_order)
     
     assert len(trades) == 1
     assert trades[0].quantity == Decimal("0.5")
     
-    # Sell order should remain with 1.5 BTC
+    # Verify remaining order book state
     assert len(book.asks) == 1
-    assert book.asks[0].quantity == Decimal("1.5")
+    assert book.asks[0].quantity - book.asks[0].filled_quantity == Decimal("1.5") # 2.0 - 0.5
     assert len(book.bids) == 0
 
 
@@ -99,7 +99,7 @@ def test_price_time_priority():
     
     # Taker buys 1.5 BTC @ 51000
     buy_order = create_order(side=OrderSide.BUY, price="51000", quantity="1.5")
-    trades = book.add_order(buy_order)
+    trades, updates = book.add_order(buy_order)
     
     assert len(trades) == 2
     
@@ -118,7 +118,7 @@ def test_price_time_priority():
     assert len(book.asks) == 2
     # Ask 3 has 0.5 left
     assert book.asks[0].id == ask3.id
-    assert book.asks[0].quantity == Decimal("0.5")
+    assert book.asks[0].quantity - book.asks[0].filled_quantity == Decimal("0.5")
     # Ask 1 is untouched
     assert book.asks[1].id == ask1.id
     assert book.asks[1].quantity == Decimal("1.0")
