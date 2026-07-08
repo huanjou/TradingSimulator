@@ -6,9 +6,16 @@ from fastapi import APIRouter, status
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.order import order_service
 
+from opentelemetry import metrics
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+meter = metrics.get_meter(__name__)
+orders_submitted_counter = meter.create_counter(
+    "orders_submitted_total",
+    description="Total number of trading orders submitted",
+)
 
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_202_ACCEPTED)
 async def create_order(order_in: OrderCreate) -> Any:
@@ -16,6 +23,7 @@ async def create_order(order_in: OrderCreate) -> Any:
     Create a new trading order.
     Returns 202 Accepted as the order is accepted for processing via Kafka.
     """
+    orders_submitted_counter.add(1, {"symbol": order_in.symbol, "side": order_in.side.value})
     return await order_service.create_order(order_in=order_in)
 
 

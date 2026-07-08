@@ -35,8 +35,9 @@ def setup_opentelemetry(app: FastAPI):
     metrics.set_meter_provider(meter_provider)
 
     # Instrument FastAPI to automatically track requests
-    # try:
-    #     FastAPIInstrumentor.instrument_app(app)
-    # except Exception as e:
-    #     import logging
-    #     logging.getLogger(__name__).warning("Failed to instrument FastAPI app: %s", e)
+    try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        FastAPIInstrumentor.instrument_app(app)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to instrument FastAPI app: %s", e)
