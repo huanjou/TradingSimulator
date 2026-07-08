@@ -7,8 +7,11 @@ from app.services.consumer import consume
 
 from app.core.logging import setup_logging
 
+from app.core.telemetry import setup_opentelemetry
+
 settings = get_settings()
 
 if __name__ == "__main__":
     setup_logging(log_level=settings.LOG_LEVEL)
+    setup_opentelemetry()
     asyncio.run(consume())
