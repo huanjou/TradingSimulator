@@ -17,12 +17,16 @@ async def test_consumer_fatal_error_no_commit():
         def __init__(self, offset):
             self.offset = offset
 
+    class MockTopicPartition:
+        def __init__(self, topic):
+            self.topic = topic
+
     # Mock getmany to return one batch and then block or fail
     mock_consumer.getmany.return_value = {
-        "topic_partition_mock": [MockMessage(offset=10)]
+        MockTopicPartition(topic="orders"): [MockMessage(offset=10)]
     }
 
-    async def mock_process_orders(messages):
+    async def mock_process_orders(messages, **kwargs):
         raise ValueError("Fatal DB Error")
 
     with patch("app.services.consumer.AIOKafkaConsumer", return_value=mock_consumer):

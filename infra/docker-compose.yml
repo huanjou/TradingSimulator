@@ -130,6 +130,27 @@ services:
     depends_on:
       - otel-collector
 
+  loki:
+    image: grafana/loki:latest
+    container_name: exchange_loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - exchange_net
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: exchange_promtail
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - exchange_net
+
   grafana:
     image: grafana/grafana:latest
     container_name: exchange_grafana
@@ -208,6 +229,7 @@ services:
     container_name: exchange_ledger_writer
     environment:
       - KAFKA_BROKER=kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
       - REDIS_URL=redis://redis:6379/0
       - ENV=development
@@ -257,6 +279,7 @@ services:
     container_name: exchange_trading_engine
     environment:
       - KAFKA_BROKER=kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:

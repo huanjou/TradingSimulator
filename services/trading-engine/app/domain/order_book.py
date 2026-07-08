@@ -22,7 +22,7 @@ class OrderBook:
             trades, updates = self._match_sell(order)
             if order.status in [OrderStatus.PENDING, OrderStatus.PARTIALLY_FILLED]:
                 bisect.insort(self.asks, order, key=lambda x: x.price)
-                
+
         # Send update for the incoming order as well if it changed or was added
         # If it's fully filled or canceled, its status is already final
         # For simplicity, always send its final status after matching phase
@@ -38,7 +38,7 @@ class OrderBook:
         # Taker is the incoming order, Maker is the existing order in book
         trade_qty = min(taker.quantity - taker.filled_quantity, maker.quantity - maker.filled_quantity)
         trade_price = maker.price  # Maker always sets the price
-        
+
         trade = TradeEvent(
             symbol=self.symbol,
             maker_order_id=maker.id,
@@ -46,22 +46,22 @@ class OrderBook:
             price=trade_price,
             quantity=trade_qty
         )
-        
+
         taker.filled_quantity += trade_qty
         maker.filled_quantity += trade_qty
-        
+
         # Update maker status
         if maker.filled_quantity == maker.quantity:
             maker.status = OrderStatus.FILLED
         else:
             maker.status = OrderStatus.PARTIALLY_FILLED
-            
+
         maker_update = OrderUpdateEvent(
             order_id=maker.id,
             status=maker.status,
             filled_quantity=maker.filled_quantity
         )
-        
+
         # Taker status will be updated at the end of the matching loop
         if taker.filled_quantity == taker.quantity:
             taker.status = OrderStatus.FILLED
@@ -73,54 +73,54 @@ class OrderBook:
     def _match_buy(self, buy_order: Order) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
         trades = []
         updates = []
-        
+
         while self.asks and buy_order.filled_quantity < buy_order.quantity:
             best_ask = self.asks[0]
-            
+
             # Check price matching
             if buy_order.order_type == OrderType.LIMIT:
                 if best_ask.price > buy_order.price:
                     break  # Buy order price is too low
-            
+
             # Execute trade
             trade, maker_update = self._execute_trade(best_ask, buy_order)
             trades.append(trade)
             updates.append(maker_update)
-            
+
             # Remove filled maker from book
             if best_ask.status == OrderStatus.FILLED:
                 self.asks.pop(0)
-                
+
         # If MARKET order and still unfilled, cancel the rest
         if buy_order.order_type == OrderType.MARKET and buy_order.filled_quantity < buy_order.quantity:
             # If nothing matched, maybe it was just added? Status becomes canceled
             buy_order.status = OrderStatus.CANCELED
-            
+
         return trades, updates
 
     def _match_sell(self, sell_order: Order) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
         trades = []
         updates = []
-        
+
         while self.bids and sell_order.filled_quantity < sell_order.quantity:
             best_bid = self.bids[0]
-            
+
             # Check price matching
             if sell_order.order_type == OrderType.LIMIT:
                 if best_bid.price < sell_order.price:
                     break  # Sell order price is too high
-                    
+
             # Execute trade
             trade, maker_update = self._execute_trade(best_bid, sell_order)
             trades.append(trade)
             updates.append(maker_update)
-            
+
             # Remove filled maker from book
             if best_bid.status == OrderStatus.FILLED:
                 self.bids.pop(0)
-                
+
         # If MARKET order and still unfilled, cancel the rest
         if sell_order.order_type == OrderType.MARKET and sell_order.filled_quantity < sell_order.quantity:
             sell_order.status = OrderStatus.CANCELED
-            
+
         return trades, updates

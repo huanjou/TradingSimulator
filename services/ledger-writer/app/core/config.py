@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Message Broker
     KAFKA_BROKER: str = "kafka:9092"
+    KAFKA_ORDER_UPDATES_TOPIC: str = "order_updates"
 
     # Cache
     REDIS_URL: AnyUrl = "redis://redis:6379"

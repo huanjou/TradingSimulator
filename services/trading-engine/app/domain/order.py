@@ -26,5 +26,5 @@ class Order(BaseModel):
     price: Decimal | None = None
     filled_quantity: Decimal = Field(default=Decimal("0.0"))
     status: OrderStatus = Field(default=OrderStatus.PENDING)
-    
+
     model_config = ConfigDict(frozen=False) # allow modification of quantity for partial fills

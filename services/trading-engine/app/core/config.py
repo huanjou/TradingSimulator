@@ -4,6 +4,7 @@ class Settings(BaseSettings):
     KAFKA_BROKER: str = "localhost:9092"
     KAFKA_ORDERS_TOPIC: str = "orders"
     KAFKA_TRADES_TOPIC: str = "trades"
+    KAFKA_ORDER_UPDATES_TOPIC: str = "order_updates"
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

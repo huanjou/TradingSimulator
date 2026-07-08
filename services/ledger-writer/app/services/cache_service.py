@@ -12,14 +12,19 @@ async def cache_order(order_data: dict):
     Also add to user orders list: user:{user_id}:orders (zset or list)
     """
     try:
-        order_id = order_data["id"]
-        user_id = order_data["user_id"]
+        order_id = order_data.get("id") or order_data.get("order_id")
+        user_id = order_data.get("user_id")
 
-        # Save order hash
+        if not order_id:
+            logger.error("Missing order ID for caching")
+            return
+
+        # Save order hash (works for partial updates too)
         await redis_client.hset(f"order:{order_id}", mapping=order_data)
 
-        # Add to user orders list (zset by time, or simply a list)
-        await redis_client.sadd(f"user:{user_id}:orders", order_id)
+        # Add to user orders list if user_id is present
+        if user_id:
+            await redis_client.sadd(f"user:{user_id}:orders", order_id)
 
         # Set expiration if needed
         # await redis_client.expire(f"order:{order_id}", 3600)

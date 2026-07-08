@@ -1,14 +1,14 @@
-import logging
 import asyncio
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
-
 from app.api.router import api_router
-from app.db.base import *  # This ensures all models are registered
+from app.db.base import *
 from app.grpc_server import serve_grpc
+import structlog
+from app.core.logging import setup_logging
 
-logger = logging.getLogger(__name__)
+setup_logging()
+logger = structlog.get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

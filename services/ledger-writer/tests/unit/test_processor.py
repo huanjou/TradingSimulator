@@ -68,7 +68,33 @@ async def test_process_orders_db_failure():
 
         # We expect the exception to be raised, not swallowed
         with pytest.raises(Exception, match="DB Connection Failed"):
-            await process_orders(messages)
+            await process_orders(messages, topic="orders")
 
         mock_session.commit.assert_not_called()
         mock_session.rollback.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_process_orders_update_success():
+    messages = [
+        MockMessage(
+            {
+                "order_id": "order-1",
+                "status": "FILLED",
+                "filled_quantity": 1.0,
+            }
+        )
+    ]
+
+    with patch("app.services.processor.AsyncSessionLocal") as mock_session_maker:
+        mock_session = AsyncMock()
+        mock_session_maker.return_value.__aenter__.return_value = mock_session
+
+        with patch(
+            "app.services.processor.cache_order", new_callable=AsyncMock
+        ) as mock_cache:
+            await process_orders(messages, topic="order_updates")
+
+            # Assertions
+            assert mock_session.execute.call_count == 1  # 1 for order_repo.update_status
+            mock_session.commit.assert_called_once()
+            mock_cache.assert_called_once()
