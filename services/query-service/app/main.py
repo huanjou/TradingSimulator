@@ -22,6 +22,9 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
+from app.core.telemetry import setup_opentelemetry
+
 app = FastAPI(title="Query Service", version="0.1.0", lifespan=lifespan)
+setup_opentelemetry(app)
 
 app.include_router(api_router, prefix="/api/v1")
