@@ -1,26 +1,26 @@
 import asyncio
 import os
-import subprocess
 from urllib.parse import urlparse, urlunparse
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-# We extract the host/port from the default POSTGRES_URL or environment,
+# 1. We extract the host/port from the default POSTGRES_URL or environment,
 # and replace the database name with test_ledger_db.
+# Crucially, query-service points to postgres-replica by default, but we need primary to create DB and run tests safely without replication lag.
 original_url = os.environ.get(
     "POSTGRES_URL", "postgresql+asyncpg://admin:password@127.0.0.1:5432/ledger_db"
 )
+original_url = original_url.replace("postgres-replica", "postgres-primary")
 parsed = urlparse(original_url)
 test_db_url = urlunparse(parsed._replace(path="/test_ledger_db"))
-# Use the original db to connect and create the test db, because the default 'postgres' might not be accessible.
 sys_db_url = urlunparse(parsed._replace(scheme="postgresql"))
 
 os.environ["POSTGRES_URL"] = test_db_url
-# Use test Redis DB (e.g. 1) to prevent overwriting dev cache
+
+# 2. Use a separate Redis database (e.g. 1) for tests so we don't wipe dev cache!
 os.environ.setdefault("REDIS_URL", "redis://127.0.0.1:6379/1")
-os.environ.setdefault("KAFKA_BROKER", "127.0.0.1:9092")
 os.environ.setdefault("ENV", "test")
 
 
@@ -35,7 +35,7 @@ def event_loop():
 async def setup_test_db():
     import asyncpg
 
-    # 1. Connect to default postgres DB to create test_ledger_db if not exists
+    # Connect to default postgres DB to create test_ledger_db if not exists
     sys_conn = await asyncpg.connect(sys_db_url)
     try:
         await sys_conn.execute("CREATE DATABASE test_ledger_db")
@@ -44,8 +44,13 @@ async def setup_test_db():
     finally:
         await sys_conn.close()
 
-    # 2. Run alembic migrations on the newly created test_ledger_db
-    subprocess.run(["alembic", "upgrade", "head"], check=True)
+    # Run create_all to create tables since we don't have alembic in this container
+    from app.db.base_class import Base
+
+    engine = create_async_engine(test_db_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture()
@@ -74,19 +79,3 @@ async def db_session(engine):
     await session.close()
     await trans.rollback()
     await connection.close()
-
-
-@pytest.fixture(autouse=True)
-def override_session_local(db_session, monkeypatch):
-    class MockSessionManager:
-        def __call__(self, *args, **kwargs):
-            return self
-
-        async def __aenter__(self):
-            return db_session
-
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-    mock_manager = MockSessionManager()
-    monkeypatch.setattr("app.services.processor.AsyncSessionLocal", mock_manager)

@@ -20,18 +20,18 @@ class UserFactory(AsyncSQLAlchemyFactory):
     is_superuser = False
 
 
-class OrderFactory(AsyncSQLAlchemyFactory):
+class OrderFactory(factory.alchemy.SQLAlchemyModelFactory):
     class Meta:
         model = Order
-        sqlalchemy_session_persistence = None
+        sqlalchemy_session_persistence = "commit"
 
     id = factory.LazyFunction(uuid.uuid4)
-    user_id = factory.SubFactory(UserFactory)
-    symbol = "BTC/USD"
-    side = SideChoice.BUY
-    order_type = OrderTypeChoice.LIMIT
-    quantity = 1.0
-    price = 50000.0
+    user_id = factory.LazyFunction(uuid.uuid4)
+    symbol = factory.Iterator(["AAPL", "GOOGL", "MSFT", "TSLA"])
+    side = factory.Iterator([SideChoice.BUY, SideChoice.SELL])
+    order_type = factory.Iterator([OrderTypeChoice.LIMIT, OrderTypeChoice.MARKET])
+    quantity = factory.Faker("pyfloat", positive=True, min_value=1, max_value=100)
+    price = factory.Faker("pyfloat", positive=True, min_value=50, max_value=500)
     status = OrderStatusChoice.PENDING
 
 

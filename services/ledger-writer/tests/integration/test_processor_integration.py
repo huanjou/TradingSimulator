@@ -1,5 +1,4 @@
 import json
-import uuid
 
 import pytest
 from sqlalchemy import select
@@ -7,6 +6,7 @@ from sqlalchemy import select
 from app.models.order import Order
 from app.models.user import User
 from app.services.processor import process_orders
+from tests.factories.models import OrderMessageFactory
 
 
 class MockMessage:
@@ -20,24 +20,12 @@ async def test_process_orders_integration_success(db_session):
     Integration test connecting to the real DB and Redis.
     Writes an order and verifies it exists in the database.
     """
-    # Generate unique IDs for the test
-    test_user_id = str(uuid.uuid4())
-    test_order_id = str(uuid.uuid4())
+    # Use the factory to generate a payload
+    payload = OrderMessageFactory()
+    test_user_id = payload["user_id"]
+    test_order_id = payload["id"]
 
-    messages = [
-        MockMessage(
-            {
-                "id": test_order_id,
-                "user_id": test_user_id,
-                "symbol": "BTC/USD",
-                "side": "BUY",
-                "type": "LIMIT",
-                "quantity": "0.5",
-                "price": "60000",
-                "status": "PENDING",
-            }
-        )
-    ]
+    messages = [MockMessage(payload)]
 
     # 1. Execute the processor
     await process_orders(messages)
@@ -61,3 +49,75 @@ async def test_process_orders_integration_success(db_session):
     assert order_in_db.price == 60000.0
 
     # No manual cleanup needed because db_session will rollback at the end of the test!
+
+
+@pytest.mark.asyncio
+async def test_process_orders_idempotency(db_session):
+    """
+    Test that sending the same order twice does not result in duplicate DB entries or crash.
+    """
+    payload = OrderMessageFactory()
+    test_order_id = payload["id"]
+    msg = MockMessage(payload)
+
+    # Execute processor twice with the same message
+    await process_orders([msg, msg])
+
+    # Verify only one order exists
+    result_order = await db_session.execute(
+        select(Order).where(Order.id == test_order_id)
+    )
+    orders = result_order.scalars().all()
+    assert len(orders) == 1
+    assert str(orders[0].id) == test_order_id
+
+
+@pytest.mark.asyncio
+async def test_process_orders_poison_pill(db_session):
+    """
+    Test that an invalid JSON payload does not crash the processor,
+    and valid messages in the same batch are still processed.
+    """
+    valid_payload = OrderMessageFactory()
+    valid_msg = MockMessage(valid_payload)
+
+    class PoisonMessage:
+        value = b"NOT VALID JSON {"
+
+    # Batch with poison pill first, then valid message
+    messages = [PoisonMessage(), valid_msg]
+
+    await process_orders(messages)
+
+    # Verify the valid message was processed
+    result_order = await db_session.execute(
+        select(Order).where(Order.id == valid_payload["id"])
+    )
+    order_in_db = result_order.scalars().first()
+    assert order_in_db is not None
+    assert str(order_in_db.id) == valid_payload["id"]
+
+
+@pytest.mark.asyncio
+async def test_process_orders_cache_failure_rollback(db_session, monkeypatch):
+    """
+    Test that if cache_order fails, the DB transaction rolls back completely.
+    """
+    payload = OrderMessageFactory()
+    msg = MockMessage(payload)
+
+    async def mock_cache_order(*args, **kwargs):
+        raise ValueError("Redis connection failed")
+
+    monkeypatch.setattr("app.services.processor.cache_order", mock_cache_order)
+
+    # Execute processor, expect it to raise the fatal exception
+    with pytest.raises(ValueError, match="Redis connection failed"):
+        await process_orders([msg])
+
+    # Verify DB rolled back (order does NOT exist)
+    result_order = await db_session.execute(
+        select(Order).where(Order.id == payload["id"])
+    )
+    order_in_db = result_order.scalars().first()
+    assert order_in_db is None
