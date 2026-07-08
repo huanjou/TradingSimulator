@@ -7,7 +7,10 @@ from app.domain.engine import MatchingEngine
 import structlog
 from app.core.logging import setup_logging
 
+from app.core.telemetry import setup_opentelemetry
+
 setup_logging()
+setup_opentelemetry()
 logger = structlog.get_logger(__name__)
 
 async def main():

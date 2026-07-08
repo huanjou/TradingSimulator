@@ -4,7 +4,19 @@ from typing import Protocol
 from app.domain.engine import MatchingEngine
 from app.domain.order import Order
 
+from opentelemetry import metrics
+
 logger = structlog.get_logger(__name__)
+
+meter = metrics.get_meter(__name__)
+orders_processed_counter = meter.create_counter(
+    "orders_processed_total",
+    description="Total number of orders processed by the matching engine",
+)
+trades_executed_counter = meter.create_counter(
+    "trades_executed_total",
+    description="Total number of trades executed by the matching engine",
+)
 
 class MessagePublisher(Protocol):
     async def publish(self, topic: str, message: bytes) -> None:
@@ -24,6 +36,9 @@ class MatchingService:
             
             # 2. Execute business logic
             trades, updates = self.engine.process_order(order)
+            
+            orders_processed_counter.add(1, {"symbol": order.symbol})
+            trades_executed_counter.add(len(trades), {"symbol": order.symbol})
             
             # 3. Publish results
             for trade in trades:
