@@ -189,6 +189,7 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - QUERY_SERVICE_URL=http://query-service:8000
+      - QUERY_SERVICE_GRPC_URL=query-service:50051
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
