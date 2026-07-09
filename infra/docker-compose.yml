@@ -229,6 +229,7 @@ services:
       - KAFKA_BROKER=kafka:9092
       - QUERY_SERVICE_URL=http://query-service:8000
       - QUERY_SERVICE_GRPC_URL=query-service:50051
+      - REDIS_URL=redis://redis:6379/0
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
@@ -236,6 +237,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - exchange_net
 

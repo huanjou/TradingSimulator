@@ -22,7 +22,7 @@ processors:
         {
           name: randomized-policy,
           type: probabilistic,
-          probabilistic: {sampling_percentage: 1} # 1% успешных логов
+          probabilistic: {sampling_percentage: 100} # 100% успешных логов для разработки
         }
       ]
 

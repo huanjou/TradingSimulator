@@ -32,9 +32,14 @@ export default function () {
     price: parseFloat(price.toFixed(2)),
   });
 
+  const randomIp = `${Math.floor(Math.random() * 255)}.${Math.floor(
+    Math.random() * 255,
+  )}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+
   const params = {
     headers: {
       "Content-Type": "application/json",
+      "X-Forwarded-For": randomIp,
     },
   };
 
@@ -60,7 +65,7 @@ export default function () {
     let getRes;
     let found = false;
     for (let i = 0; i < 15; i++) {
-      getRes = http.get(`${BASE_URL}/${orderId}`);
+      getRes = http.get(`${BASE_URL}/${orderId}`, params);
       if (getRes.status === 200) {
         found = true;
         break;
