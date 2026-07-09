@@ -72,6 +72,22 @@ class OrderRepository(BaseRepository[DbOrder]):
         )
         await db.execute(stmt)
 
+    async def upsert_bulk(self, db: AsyncSession, objects: list[dict]) -> None:
+        if not objects:
+            return
+        stmt = (
+            insert(DbOrder)
+            .values(objects)
+            .on_conflict_do_update(
+                index_elements=["id"],
+                set_=dict(
+                    status=insert(DbOrder).excluded.status,
+                    filled_quantity=insert(DbOrder).excluded.filled_quantity,
+                ),
+            )
+        )
+        await db.execute(stmt)
+
     async def update_status(self, db: AsyncSession, order_id: str, status: str, filled_quantity: float) -> None:
         from sqlalchemy import update
         stmt = (

@@ -1,12 +1,9 @@
-import json
+import orjson
 import structlog
 
 from app.db.session import AsyncSessionLocal
-from app.domain.order import OrderEntity
-from app.domain.user import UserEntity
 from app.repositories.order import order_repo
 from app.repositories.user import user_repo
-from app.services.cache_service import cache_order
 
 from opentelemetry import metrics
 
@@ -28,11 +25,14 @@ async def process_orders(messages, topic: str = "orders"):
     """
     async with AsyncSessionLocal() as session:
         try:
-            updates = []
+            order_inserts = []
+            user_inserts = []
+            order_updates = []
+
             for msg in messages:
                 try:
-                    data = json.loads(msg.value.decode("utf-8"))
-                except json.JSONDecodeError as e:
+                    data = orjson.loads(msg.value)
+                except orjson.JSONDecodeError as e:
                     ledger_write_errors_counter.add(1, {"reason": "invalid_json"})
                     logger.error("poison_pill_detected", reason="invalid_json", error=str(e))
                     continue
@@ -42,31 +42,25 @@ async def process_orders(messages, topic: str = "orders"):
                     continue
 
                 if topic == "orders":
-                    # 1. Create Domain Entities for new order
-                    user_entity = UserEntity(
-                        id=data.get("user_id"),
-                        email=f"user_{data.get('user_id')}@test.com",
-                        hashed_password="fake",
-                    )
+                    user_inserts.append({
+                        "id": data.get("user_id"),
+                        "email": f"user_{data.get('user_id')}@test.com",
+                        "hashed_password": "fake",
+                    })
 
-                    order_entity = OrderEntity(
-                        id=data.get("id"),
-                        user_id=data.get("user_id"),
-                        symbol=data.get("symbol"),
-                        side=data.get("side"),
-                        order_type=data.get("order_type", data.get("type")),
-                        quantity=data.get("quantity"),
-                        price=data.get("price"),
-                        status=data.get("status", "PENDING"),
-                    )
-
-                    # 2. Upsert via Repositories
-                    await user_repo.upsert(session, obj_in=user_entity)
-                    await order_repo.upsert(session, obj_in=order_entity)
-                    ledger_writes_counter.add(1, {"type": "order_insert"})
+                    order_inserts.append({
+                        "id": data.get("id"),
+                        "user_id": data.get("user_id"),
+                        "symbol": data.get("symbol"),
+                        "side": data.get("side"),
+                        "order_type": data.get("order_type", data.get("type")),
+                        "quantity": float(data.get("quantity", 0.0)),
+                        "filled_quantity": 0.0,
+                        "price": float(data.get("price", 0.0)),
+                        "status": data.get("status", "PENDING"),
+                    })
                 
                 elif topic == "order_updates":
-                    # Update order status and filled_quantity
                     order_id = data.get("order_id") or data.get("id")
                     status = data.get("status")
                     try:
@@ -75,21 +69,20 @@ async def process_orders(messages, topic: str = "orders"):
                         filled_quantity = 0.0
                     
                     if order_id and status:
-                        updates.append({
+                        order_updates.append({
                             "id": order_id,
                             "status": status,
                             "filled_quantity": filled_quantity
                         })
-                        ledger_writes_counter.add(1, {"type": "order_update"})
 
-                # 3. Cache to redis (convert values to str to avoid serialization issues)
-                cache_dict = {
-                    k: str(v) if v is not None else "" for k, v in data.items()
-                }
-                await cache_order(cache_dict)
-
-            if updates:
-                await order_repo.update_status_bulk(session, updates)
+            if user_inserts:
+                await user_repo.upsert_bulk(session, user_inserts)
+            if order_inserts:
+                await order_repo.upsert_bulk(session, order_inserts)
+                ledger_writes_counter.add(len(order_inserts), {"type": "order_insert"})
+            if order_updates:
+                await order_repo.update_status_bulk(session, order_updates)
+                ledger_writes_counter.add(len(order_updates), {"type": "order_update"})
 
             await session.commit()
         except Exception as e:

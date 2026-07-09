@@ -29,5 +29,15 @@ class UserRepository(BaseRepository[DbUser]):
         )
         await db.execute(stmt)
 
+    async def upsert_bulk(self, db: AsyncSession, objects: list[dict]) -> None:
+        if not objects:
+            return
+        stmt = (
+            insert(DbUser)
+            .values(objects)
+            .on_conflict_do_nothing()
+        )
+        await db.execute(stmt)
+
 
 user_repo = UserRepository(DbUser)
