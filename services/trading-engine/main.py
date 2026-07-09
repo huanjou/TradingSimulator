@@ -29,7 +29,7 @@ async def main():
             
         async def publish(self, topic: str, data: bytes):
             if self.kafka_app:
-                await self.kafka_app.publish(topic, data)
+                return await self.kafka_app.publish(topic, data)
 
     adapter = PublisherAdapter()
     
@@ -43,7 +43,7 @@ async def main():
         updates_topic=settings.KAFKA_ORDER_UPDATES_TOPIC
     )
     
-    app = KafkaApp(message_handler=service.handle_new_order)
+    app = KafkaApp(message_handler=service.handle_orders_batch)
     adapter.kafka_app = app
     
     logger.info("Starting Trading Engine...")

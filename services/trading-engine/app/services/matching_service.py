@@ -19,7 +19,7 @@ trades_executed_counter = meter.create_counter(
 )
 
 class MessagePublisher(Protocol):
-    async def publish(self, topic: str, message: bytes) -> None:
+    async def publish(self, topic: str, message: bytes):
         pass
 
 class MatchingService:
@@ -29,27 +29,35 @@ class MatchingService:
         self.trades_topic = trades_topic
         self.updates_topic = updates_topic
 
-    async def handle_new_order(self, order_data: dict) -> None:
+    async def handle_orders_batch(self, orders_data: list[dict]) -> None:
         try:
-            # 1. Convert to domain model
-            order = Order.model_validate(order_data)
+            publish_futures = []
             
-            # 2. Execute business logic
-            trades, updates = self.engine.process_order(order)
-            
-            orders_processed_counter.add(1, {"symbol": order.symbol})
-            trades_executed_counter.add(len(trades), {"symbol": order.symbol})
-            
-            # 3. Publish results
-            for trade in trades:
-                trade_bytes = trade.model_dump_json().encode("utf-8")
-                await self.publisher.publish(self.trades_topic, trade_bytes)
-                logger.info("trade_published", trade_id=str(trade.trade_id), maker_order_id=str(trade.maker_order_id), taker_order_id=str(trade.taker_order_id))
+            for order_data in orders_data:
+                # 1. Convert to domain model
+                order = Order.model_validate(order_data)
                 
-            for update in updates:
-                update_bytes = update.model_dump_json().encode("utf-8")
-                await self.publisher.publish(self.updates_topic, update_bytes)
-                logger.info("order_update_published", order_id=str(update.order_id), status=update.status.value)
+                # 2. Execute business logic
+                trades, updates = self.engine.process_order(order)
+                
+                orders_processed_counter.add(1, {"symbol": order.symbol})
+                trades_executed_counter.add(len(trades), {"symbol": order.symbol})
+                
+                # 3. Publish results (gather futures)
+                for trade in trades:
+                    trade_bytes = trade.model_dump_json().encode("utf-8")
+                    publish_futures.append(self.publisher.publish(self.trades_topic, trade_bytes))
+                    logger.info("trade_published", trade_id=str(trade.id), maker_order_id=str(trade.maker_order_id), taker_order_id=str(trade.taker_order_id))
+                    
+                for update in updates:
+                    update_bytes = update.model_dump_json().encode("utf-8")
+                    publish_futures.append(self.publisher.publish(self.updates_topic, update_bytes))
+                    logger.info("order_update_published", order_id=str(update.order_id), status=update.status.value)
+                    
+            # Await all publishes concurrently
+            if publish_futures:
+                import asyncio
+                await asyncio.gather(*publish_futures)
                 
         except Exception as e:
-            logger.error("order_handling_failed", error=str(e), exc_info=True)
+            logger.error("order_batch_handling_failed", error=str(e), exc_info=True)

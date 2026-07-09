@@ -21,25 +21,34 @@ test:
 
 # Быстрый запуск тестов для ledger-writer (внутри уже работающего контейнера)
 test-ledger:
-	docker exec -e POSTGRES_URL="postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db" -e REDIS_URL="redis://redis:6379/0" -e KAFKA_BROKER="kafka:9092" exchange_ledger_writer poetry run pytest $(ARGS)
+	docker exec -e POSTGRES_URL="postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db" -e REDIS_URL="redis://redis:6379/0" -e KAFKA_BROKER="kafka:9092" exchange_ledger_writer pytest $(ARGS)
 
 # Быстрый запуск тестов для api-gateway (внутри уже работающего контейнера)
 test-gateway:
-	docker exec -e KAFKA_BROKER="kafka:9092" -e QUERY_SERVICE_GRPC_URL="query-service:50051" exchange_api_gateway poetry run pytest $(ARGS)
+	docker exec -e KAFKA_BROKER="kafka:9092" -e QUERY_SERVICE_GRPC_URL="query-service:50051" exchange_api_gateway pytest $(ARGS)
 
 # Быстрый запуск тестов для query-service (внутри уже работающего контейнера)
 test-query:
-	docker exec -e POSTGRES_URL="postgresql+asyncpg://admin:password@postgres-replica:5432/ledger_db" -e REDIS_URL="redis://redis:6379/0" exchange_query_service poetry run pytest $(ARGS)
+	docker exec -e POSTGRES_URL="postgresql+asyncpg://admin:password@postgres-replica:5432/ledger_db" -e REDIS_URL="redis://redis:6379/0" exchange_query_service pytest $(ARGS)
 
 # Быстрый запуск тестов для trading-engine (внутри уже работающего контейнера)
 test-engine:
-	docker exec -e KAFKA_BROKER="kafka:9092" exchange_trading_engine poetry run pytest $(ARGS)
+	docker exec -e KAFKA_BROKER="kafka:9092" exchange_trading_engine pytest $(ARGS)
 
 seed:
-	docker exec exchange_ledger_writer poetry run python -m scripts.seed
+	docker exec exchange_ledger_writer python -m scripts.seed
 
 load-test:
 	cd infra && docker compose -p load_test -f docker-compose.load.yml up --build --abort-on-container-exit --exit-code-from k6
+
+benchmark-engine-core:
+	docker exec exchange_trading_engine python -m tests.benchmark_core
+
+benchmark-engine-kafka:
+	docker exec -e KAFKA_BROKER="kafka:9092" exchange_trading_engine python -m tests.benchmark_kafka
+
+benchmark-ledger:
+	docker exec -e KAFKA_BROKER="kafka:9092" -e POSTGRES_URL="postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db" exchange_ledger_writer python -m tests.benchmark_db
 
 # ==========================================
 # PRODUCTION
