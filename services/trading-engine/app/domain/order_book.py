@@ -1,8 +1,8 @@
 import bisect
 from typing import List, Tuple
-from decimal import Decimal
 from .order import Order, OrderSide, OrderType, OrderStatus
 from .events import TradeEvent, OrderUpdateEvent
+
 
 class OrderBook:
     def __init__(self, symbol: str):
@@ -10,7 +10,9 @@ class OrderBook:
         self.bids: List[Order] = []  # Buy orders (sorted highest price first)
         self.asks: List[Order] = []  # Sell orders (sorted lowest price first)
 
-    def add_order(self, order: Order) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
+    def add_order(
+        self, order: Order
+    ) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
         trades: List[TradeEvent] = []
         updates: List[OrderUpdateEvent] = []
 
@@ -26,17 +28,24 @@ class OrderBook:
         # Send update for the incoming order as well if it changed or was added
         # If it's fully filled or canceled, its status is already final
         # For simplicity, always send its final status after matching phase
-        updates.append(OrderUpdateEvent(
-            order_id=order.id,
-            status=order.status,
-            filled_quantity=order.filled_quantity
-        ))
+        updates.append(
+            OrderUpdateEvent(
+                order_id=order.id,
+                status=order.status,
+                filled_quantity=order.filled_quantity,
+            )
+        )
 
         return trades, updates
 
-    def _execute_trade(self, maker: Order, taker: Order) -> Tuple[TradeEvent, OrderUpdateEvent]:
+    def _execute_trade(
+        self, maker: Order, taker: Order
+    ) -> Tuple[TradeEvent, OrderUpdateEvent]:
         # Taker is the incoming order, Maker is the existing order in book
-        trade_qty = min(taker.quantity - taker.filled_quantity, maker.quantity - maker.filled_quantity)
+        trade_qty = min(
+            taker.quantity - taker.filled_quantity,
+            maker.quantity - maker.filled_quantity,
+        )
         trade_price = maker.price  # Maker always sets the price
 
         trade = TradeEvent(
@@ -44,7 +53,7 @@ class OrderBook:
             maker_order_id=maker.id,
             taker_order_id=taker.id,
             price=trade_price,
-            quantity=trade_qty
+            quantity=trade_qty,
         )
 
         taker.filled_quantity += trade_qty
@@ -59,7 +68,7 @@ class OrderBook:
         maker_update = OrderUpdateEvent(
             order_id=maker.id,
             status=maker.status,
-            filled_quantity=maker.filled_quantity
+            filled_quantity=maker.filled_quantity,
         )
 
         # Taker status will be updated at the end of the matching loop
@@ -70,7 +79,9 @@ class OrderBook:
 
         return trade, maker_update
 
-    def _match_buy(self, buy_order: Order) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
+    def _match_buy(
+        self, buy_order: Order
+    ) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
         trades = []
         updates = []
 
@@ -92,13 +103,18 @@ class OrderBook:
                 self.asks.pop(0)
 
         # If MARKET order and still unfilled, cancel the rest
-        if buy_order.order_type == OrderType.MARKET and buy_order.filled_quantity < buy_order.quantity:
+        if (
+            buy_order.order_type == OrderType.MARKET
+            and buy_order.filled_quantity < buy_order.quantity
+        ):
             # If nothing matched, maybe it was just added? Status becomes canceled
             buy_order.status = OrderStatus.CANCELED
 
         return trades, updates
 
-    def _match_sell(self, sell_order: Order) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
+    def _match_sell(
+        self, sell_order: Order
+    ) -> Tuple[List[TradeEvent], List[OrderUpdateEvent]]:
         trades = []
         updates = []
 
@@ -120,7 +136,10 @@ class OrderBook:
                 self.bids.pop(0)
 
         # If MARKET order and still unfilled, cancel the rest
-        if sell_order.order_type == OrderType.MARKET and sell_order.filled_quantity < sell_order.quantity:
+        if (
+            sell_order.order_type == OrderType.MARKET
+            and sell_order.filled_quantity < sell_order.quantity
+        ):
             sell_order.status = OrderStatus.CANCELED
 
         return trades, updates

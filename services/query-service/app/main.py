@@ -1,14 +1,17 @@
 import asyncio
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI
+
 from app.api.router import api_router
+from app.core.logging import setup_logging
 from app.db.base import *
 from app.grpc_server import serve_grpc
-import structlog
-from app.core.logging import setup_logging
 
 setup_logging()
 logger = structlog.get_logger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,6 +24,7 @@ async def lifespan(app: FastAPI):
         await grpc_task
     except asyncio.CancelledError:
         pass
+
 
 from app.core.telemetry import setup_opentelemetry
 

@@ -1,11 +1,8 @@
-import pytest
 from uuid import uuid4
 from decimal import Decimal
-from typing import List
 
 from app.domain.order import Order, OrderSide, OrderType
 from app.domain.order_book import OrderBook
-from app.domain.trade import Trade
 
 
 def create_order(
@@ -13,7 +10,7 @@ def create_order(
     price: str,
     quantity: str,
     user_id: str = "user1",
-    symbol: str = "BTC/USD"
+    symbol: str = "BTC/USD",
 ) -> Order:
     return Order(
         id=str(uuid4()),
@@ -41,12 +38,16 @@ def test_exact_match():
     book = OrderBook(symbol="BTC/USD")
 
     # 1. User 1 places a sell order (Ask)
-    sell_order = create_order(side=OrderSide.SELL, price="50000", quantity="1.0", user_id="user1")
+    sell_order = create_order(
+        side=OrderSide.SELL, price="50000", quantity="1.0", user_id="user1"
+    )
     trades_1, updates_1 = book.add_order(sell_order)
     assert len(trades_1) == 0
 
     # 2. User 2 places a buy order (Bid) matching exactly
-    buy_order = create_order(side=OrderSide.BUY, price="50000", quantity="1.0", user_id="user2")
+    buy_order = create_order(
+        side=OrderSide.BUY, price="50000", quantity="1.0", user_id="user2"
+    )
     trades_2, updates_2 = book.add_order(buy_order)
 
     # Assert Trade is generated
@@ -66,11 +67,15 @@ def test_partial_match():
     book = OrderBook(symbol="BTC/USD")
 
     # Sell 2.0 BTC @ 50000
-    sell_order = create_order(side=OrderSide.SELL, price="50000", quantity="2.0", user_id="user1")
+    sell_order = create_order(
+        side=OrderSide.SELL, price="50000", quantity="2.0", user_id="user1"
+    )
     book.add_order(sell_order)
 
     # Buy 0.5 BTC @ 50000
-    buy_order = create_order(side=OrderSide.BUY, price="50000", quantity="0.5", user_id="user2")
+    buy_order = create_order(
+        side=OrderSide.BUY, price="50000", quantity="0.5", user_id="user2"
+    )
     trades, updates = book.add_order(buy_order)
 
     assert len(trades) == 1
@@ -78,7 +83,9 @@ def test_partial_match():
 
     # Verify remaining order book state
     assert len(book.asks) == 1
-    assert book.asks[0].quantity - book.asks[0].filled_quantity == Decimal("1.5") # 2.0 - 0.5
+    assert book.asks[0].quantity - book.asks[0].filled_quantity == Decimal(
+        "1.5"
+    )  # 2.0 - 0.5
     assert len(book.bids) == 0
 
 

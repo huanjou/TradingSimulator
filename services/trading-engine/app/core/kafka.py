@@ -1,4 +1,3 @@
-import asyncio
 import orjson
 import structlog
 import uuid
@@ -8,15 +7,16 @@ from typing import Callable, Awaitable
 
 logger = structlog.get_logger(__name__)
 
+
 class KafkaApp:
     def __init__(self, message_handler: Callable[[list[dict]], Awaitable[None]]):
         self.message_handler = message_handler
-        
+
         self.consumer = AIOKafkaConsumer(
             settings.KAFKA_ORDERS_TOPIC,
             bootstrap_servers=settings.KAFKA_BROKER,
             group_id="trading-engine-group",
-            auto_offset_reset="earliest"
+            auto_offset_reset="earliest",
         )
         self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BROKER,
@@ -27,14 +27,14 @@ class KafkaApp:
         await self.consumer.start()
         await self.producer.start()
         logger.info("kafka_started", topics=[settings.KAFKA_ORDERS_TOPIC])
-        
+
         try:
             while True:
                 # getmany returns dict: {TopicPartition: [ConsumerRecord, ...]}
                 data = await self.consumer.getmany(timeout_ms=100, max_records=500)
                 if not data:
                     continue
-                    
+
                 for tp, messages in data.items():
                     await self._process_batch(messages)
         finally:
@@ -48,12 +48,12 @@ class KafkaApp:
     async def _process_batch(self, messages: list):
         if not messages:
             return
-            
+
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
             batch_id=str(uuid.uuid4()),
             topic=messages[0].topic,
-            batch_size=len(messages)
+            batch_size=len(messages),
         )
         try:
             orders_data = [orjson.loads(msg.value) for msg in messages]

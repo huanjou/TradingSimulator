@@ -88,8 +88,11 @@ class OrderRepository(BaseRepository[DbOrder]):
         )
         await db.execute(stmt)
 
-    async def update_status(self, db: AsyncSession, order_id: str, status: str, filled_quantity: float) -> None:
+    async def update_status(
+        self, db: AsyncSession, order_id: str, status: str, filled_quantity: float
+    ) -> None:
         from sqlalchemy import update
+
         stmt = (
             update(DbOrder)
             .where(DbOrder.id == order_id)
@@ -104,6 +107,7 @@ class OrderRepository(BaseRepository[DbOrder]):
         if not updates:
             return
         from sqlalchemy import update
+
         await db.execute(update(DbOrder), updates)
 
 

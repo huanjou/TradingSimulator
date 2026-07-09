@@ -73,6 +73,7 @@ async def test_process_orders_db_failure():
         mock_session.commit.assert_not_called()
         mock_session.rollback.assert_called_once()
 
+
 @pytest.mark.asyncio
 async def test_process_orders_update_success():
     messages = [
@@ -95,6 +96,8 @@ async def test_process_orders_update_success():
             await process_orders(messages, topic="order_updates")
 
             # Assertions
-            assert mock_session.execute.call_count == 1  # 1 for order_repo.update_status
+            assert (
+                mock_session.execute.call_count == 1
+            )  # 1 for order_repo.update_status
             mock_session.commit.assert_called_once()
             mock_cache.assert_called_once()

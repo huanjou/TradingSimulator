@@ -1,7 +1,7 @@
-import structlog
+import uuid
 
 import grpc
-import uuid
+import structlog
 
 from app.db.session import AsyncSessionLocal
 from app.grpc_stubs import orders_pb2, orders_pb2_grpc
@@ -15,15 +15,13 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
         self, request: orders_pb2.GetOrderRequest, context: grpc.aio.ServicerContext
     ) -> orders_pb2.OrderResponse:
         order_id = request.order_id
-        
+
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
-            request_id=str(uuid.uuid4()),
-            order_id=order_id,
-            grpc_method="GetOrder"
+            request_id=str(uuid.uuid4()), order_id=order_id, grpc_method="GetOrder"
         )
         logger.info("grpc_request_received")
-        
+
         try:
             async with AsyncSessionLocal() as db_session:
                 order = await get_order_by_id(db_session, order_id)
@@ -43,8 +41,12 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                     quantity=order.quantity,
                     price=order.price,
                     status=order.status,
-                    created_at=getattr(order, "created_at").isoformat() if getattr(order, "created_at", None) else "",
-                    updated_at=getattr(order, "updated_at").isoformat() if getattr(order, "updated_at", None) else "",
+                    created_at=order.created_at.isoformat()
+                    if getattr(order, "created_at", None)
+                    else "",
+                    updated_at=order.updated_at.isoformat()
+                    if getattr(order, "updated_at", None)
+                    else "",
                 )
         except Exception as e:
             logger.error("grpc_request_failed", error=str(e), exc_info=True)

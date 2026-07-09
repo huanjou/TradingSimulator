@@ -2,9 +2,9 @@ import asyncio
 import json
 import pytest
 import uuid
-from decimal import Decimal
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from app.core.config import settings
+
 
 @pytest.mark.asyncio
 async def test_kafka_integration():
@@ -19,7 +19,7 @@ async def test_kafka_integration():
         settings.KAFKA_ORDER_UPDATES_TOPIC,
         bootstrap_servers=settings.KAFKA_BROKER,
         group_id=f"test-group-{uuid.uuid4()}",
-        auto_offset_reset="latest" # We only care about messages produced during this test
+        auto_offset_reset="latest",  # We only care about messages produced during this test
     )
     await consumer.start()
 
@@ -35,7 +35,7 @@ async def test_kafka_integration():
             "side": "SELL",
             "order_type": "LIMIT",
             "quantity": "5.0",
-            "price": "100.0"
+            "price": "100.0",
         }
 
         buy_order = {
@@ -44,12 +44,16 @@ async def test_kafka_integration():
             "symbol": symbol,
             "side": "BUY",
             "order_type": "MARKET",
-            "quantity": "5.0"
+            "quantity": "5.0",
         }
 
         # Publish orders
-        await producer.send_and_wait(settings.KAFKA_ORDERS_TOPIC, json.dumps(sell_order).encode("utf-8"))
-        await producer.send_and_wait(settings.KAFKA_ORDERS_TOPIC, json.dumps(buy_order).encode("utf-8"))
+        await producer.send_and_wait(
+            settings.KAFKA_ORDERS_TOPIC, json.dumps(sell_order).encode("utf-8")
+        )
+        await producer.send_and_wait(
+            settings.KAFKA_ORDERS_TOPIC, json.dumps(buy_order).encode("utf-8")
+        )
 
         # Now listen for the results
         # We expect:
@@ -61,7 +65,7 @@ async def test_kafka_integration():
         events_received = {
             "trades": 0,
             "updates_sell_filled": False,
-            "updates_buy_filled": False
+            "updates_buy_filled": False,
         }
 
         # Timeout after 5 seconds
@@ -77,13 +81,23 @@ async def test_kafka_integration():
                         assert payload["price"] == "100.0"
 
                 elif msg.topic == settings.KAFKA_ORDER_UPDATES_TOPIC:
-                    if payload.get("order_id") == sell_order["id"] and payload.get("status") == "FILLED":
+                    if (
+                        payload.get("order_id") == sell_order["id"]
+                        and payload.get("status") == "FILLED"
+                    ):
                         events_received["updates_sell_filled"] = True
-                    if payload.get("order_id") == buy_order["id"] and payload.get("status") == "FILLED":
+                    if (
+                        payload.get("order_id") == buy_order["id"]
+                        and payload.get("status") == "FILLED"
+                    ):
                         events_received["updates_buy_filled"] = True
 
-                if events_received["trades"] == 1 and events_received["updates_sell_filled"] and events_received["updates_buy_filled"]:
-                    return True # Success
+                if (
+                    events_received["trades"] == 1
+                    and events_received["updates_sell_filled"]
+                    and events_received["updates_buy_filled"]
+                ):
+                    return True  # Success
 
         try:
             await asyncio.wait_for(wait_for_messages(), timeout=5.0)

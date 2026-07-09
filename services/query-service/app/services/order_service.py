@@ -1,12 +1,10 @@
 import structlog
-
+from opentelemetry import metrics
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.order import OrderEntity
 from app.repositories.order import OrderRepository
 from app.services.cache_service import get_cached_order
-
-from opentelemetry import metrics
 
 logger = structlog.get_logger(__name__)
 meter = metrics.get_meter(__name__)
@@ -14,6 +12,7 @@ order_queries_counter = meter.create_counter(
     "order_queries_total",
     description="Total number of order read queries",
 )
+
 
 async def get_order_by_id(db: AsyncSession, order_id: str) -> OrderEntity | None:
     """

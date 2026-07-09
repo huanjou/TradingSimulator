@@ -1,13 +1,10 @@
 import asyncio
-import logging
 
 from app.core.config import get_settings
+from app.core.logging import setup_logging
+from app.core.telemetry import setup_opentelemetry
 from app.db.base import *  # This ensures all models are registered
 from app.services.consumer import consume
-
-from app.core.logging import setup_logging
-
-from app.core.telemetry import setup_opentelemetry
 
 settings = get_settings()
 

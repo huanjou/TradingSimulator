@@ -1,6 +1,6 @@
-import structlog
 import uuid
 
+import structlog
 from aiokafka import AIOKafkaConsumer
 
 from app.core.config import get_settings
@@ -24,7 +24,9 @@ async def consume():
         enable_auto_commit=False,
     )
     await consumer.start()
-    logger.info("consumer_started", topics=["orders", settings.KAFKA_ORDER_UPDATES_TOPIC])
+    logger.info(
+        "consumer_started", topics=["orders", settings.KAFKA_ORDER_UPDATES_TOPIC]
+    )
     try:
         while True:
             # Fetch in batches for efficiency
