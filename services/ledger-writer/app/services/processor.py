@@ -28,6 +28,7 @@ async def process_orders(messages, topic: str = "orders"):
     """
     async with AsyncSessionLocal() as session:
         try:
+            updates = []
             for msg in messages:
                 try:
                     data = json.loads(msg.value.decode("utf-8"))
@@ -74,12 +75,11 @@ async def process_orders(messages, topic: str = "orders"):
                         filled_quantity = 0.0
                     
                     if order_id and status:
-                        await order_repo.update_status(
-                            session, 
-                            order_id=order_id, 
-                            status=status, 
-                            filled_quantity=filled_quantity
-                        )
+                        updates.append({
+                            "id": order_id,
+                            "status": status,
+                            "filled_quantity": filled_quantity
+                        })
                         ledger_writes_counter.add(1, {"type": "order_update"})
 
                 # 3. Cache to redis (convert values to str to avoid serialization issues)
@@ -87,6 +87,9 @@ async def process_orders(messages, topic: str = "orders"):
                     k: str(v) if v is not None else "" for k, v in data.items()
                 }
                 await cache_order(cache_dict)
+
+            if updates:
+                await order_repo.update_status_bulk(session, updates)
 
             await session.commit()
         except Exception as e:

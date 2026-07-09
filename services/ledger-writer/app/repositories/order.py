@@ -81,5 +81,14 @@ class OrderRepository(BaseRepository[DbOrder]):
         )
         await db.execute(stmt)
 
+    async def update_status_bulk(self, db: AsyncSession, updates: list[dict]) -> None:
+        """
+        updates: list of dicts with keys 'id', 'status', 'filled_quantity'
+        """
+        if not updates:
+            return
+        from sqlalchemy import update
+        await db.execute(update(DbOrder), updates)
+
 
 order_repo = OrderRepository(DbOrder)
