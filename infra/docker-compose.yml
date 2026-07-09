@@ -249,19 +249,38 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
-      - REDIS_URL=redis://redis:6379/0
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
 
       postgres-primary:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/ledger-writer:/app
+    networks:
+      - exchange_net
+
+  cache-writer:
+    build:
+      context: ../services/cache-writer
+      dockerfile: Dockerfile
+      target: development
+    container_name: exchange_cache_writer
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - REDIS_URL=redis://redis:6379/0
+      - ENV=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
       redis:
         condition: service_healthy
       kafka:
         condition: service_healthy
     volumes:
-      - ../services/ledger-writer:/app
+      - ../services/cache-writer:/app
     networks:
       - exchange_net
 
