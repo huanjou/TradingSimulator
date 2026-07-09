@@ -1,5 +1,5 @@
 import asyncio
-import json
+import orjson
 import structlog
 import uuid
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -19,7 +19,8 @@ class KafkaApp:
             auto_offset_reset="earliest"
         )
         self.producer = AIOKafkaProducer(
-            bootstrap_servers=settings.KAFKA_BROKER
+            bootstrap_servers=settings.KAFKA_BROKER,
+            linger_ms=5,
         )
 
     async def start(self):
@@ -55,12 +56,12 @@ class KafkaApp:
             batch_size=len(messages)
         )
         try:
-            orders_data = [json.loads(msg.value.decode("utf-8")) for msg in messages]
+            orders_data = [orjson.loads(msg.value) for msg in messages]
             logger.info("processing_batch", size=len(orders_data))
             await self.message_handler(orders_data)
         except Exception as e:
             logger.error("batch_processing_failed", error=str(e), exc_info=True)
 
-    async def publish(self, topic: str, data: bytes):
+    async def publish(self, topic: str, data: bytes, key: bytes | None = None):
         """Helper method to expose producer publish functionality. Returns a Future."""
-        return await self.producer.send(topic, data)
+        return await self.producer.send(topic, data, key=key)

@@ -27,9 +27,9 @@ async def main():
         def __init__(self):
             self.kafka_app = None
             
-        async def publish(self, topic: str, data: bytes):
+        async def publish(self, topic: str, data: bytes, key: bytes | None = None):
             if self.kafka_app:
-                return await self.kafka_app.publish(topic, data)
+                return await self.kafka_app.publish(topic, data, key=key)
 
     adapter = PublisherAdapter()
     

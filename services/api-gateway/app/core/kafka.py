@@ -1,4 +1,4 @@
-import json
+import orjson
 import logging
 from typing import Any
 
@@ -18,7 +18,8 @@ class KafkaProducerClient:
         """Initialize the Kafka producer and connect to the broker."""
         self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BROKER,
-            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+            value_serializer=lambda v: orjson.dumps(v),
+            linger_ms=5,
         )
         await self.producer.start()
         logger.info("Kafka Producer started successfully.")
@@ -29,11 +30,12 @@ class KafkaProducerClient:
             await self.producer.stop()
             logger.info("Kafka Producer stopped.")
 
-    async def send_event(self, topic: str, value: dict[str, Any]):
+    async def send_event(self, topic: str, value: dict[str, Any], key: bytes | None = None):
         """Publish an event to a specific Kafka topic."""
         if not self.producer:
             raise RuntimeError("Kafka Producer is not initialized. Call start() first.")
-        await self.producer.send_and_wait(topic, value)
+        # Fire and forget instead of wait
+        self.producer.send(topic, value=value, key=key)
         logger.debug(f"Event published to topic {topic}")
 
 

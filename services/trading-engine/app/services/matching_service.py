@@ -1,4 +1,4 @@
-import json
+import orjson
 import structlog
 from typing import Protocol
 from app.domain.engine import MatchingEngine
@@ -19,7 +19,7 @@ trades_executed_counter = meter.create_counter(
 )
 
 class MessagePublisher(Protocol):
-    async def publish(self, topic: str, message: bytes):
+    async def publish(self, topic: str, message: bytes, key: bytes | None = None):
         pass
 
 class MatchingService:
@@ -45,13 +45,13 @@ class MatchingService:
                 
                 # 3. Publish results (gather futures)
                 for trade in trades:
-                    trade_bytes = trade.model_dump_json().encode("utf-8")
-                    publish_futures.append(self.publisher.publish(self.trades_topic, trade_bytes))
+                    trade_bytes = orjson.dumps(trade.model_dump(mode='json'))
+                    publish_futures.append(self.publisher.publish(self.trades_topic, trade_bytes, key=order.symbol.encode("utf-8")))
                     logger.info("trade_published", trade_id=str(trade.id), maker_order_id=str(trade.maker_order_id), taker_order_id=str(trade.taker_order_id))
                     
                 for update in updates:
-                    update_bytes = update.model_dump_json().encode("utf-8")
-                    publish_futures.append(self.publisher.publish(self.updates_topic, update_bytes))
+                    update_bytes = orjson.dumps(update.model_dump(mode='json'))
+                    publish_futures.append(self.publisher.publish(self.updates_topic, update_bytes, key=order.symbol.encode("utf-8")))
                     logger.info("order_update_published", order_id=str(update.order_id), status=update.status.value)
                     
             # Await all publishes concurrently

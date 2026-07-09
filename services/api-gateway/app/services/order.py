@@ -29,6 +29,7 @@ class OrderService:
             # 2. Publish order event directly to Kafka (Fire-and-forget)
             await kafka_client.send_event(
                 topic="orders",
+                key=domain_order.symbol.encode("utf-8"),
                 value={
                     "id": str(domain_order.id),
                     "user_id": str(domain_order.user_id),
