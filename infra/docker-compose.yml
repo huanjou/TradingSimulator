@@ -215,22 +215,7 @@ services:
   # ==========================================
   # МИКРОСЕРВИСЫ
   # ==========================================
-  ledger-migrations:
-    build:
-      context: ../services/ledger-writer
-      dockerfile: Dockerfile
-      target: development
-    container_name: exchange_ledger_migrations
-    command: [ "poetry", "run", "alembic", "upgrade", "head" ]
-    environment:
-      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
-    volumes:
-      - ../services/ledger-writer:/app
-    depends_on:
-      postgres-primary:
-        condition: service_healthy
-    networks:
-      - exchange_net
+
 
   api-gateway:
     build:
@@ -268,8 +253,7 @@ services:
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
-      ledger-migrations:
-        condition: service_completed_successfully
+
       postgres-primary:
         condition: service_healthy
       redis:

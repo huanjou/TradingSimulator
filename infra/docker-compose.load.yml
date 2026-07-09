@@ -41,19 +41,7 @@ services:
       timeout: 5s
       retries: 10
 
-  ledger-migrations:
-    build:
-      context: ../services/ledger-writer
-      dockerfile: Dockerfile
-      target: development
-    command: sh -c "poetry run alembic upgrade head && tail -f /dev/null"
-    environment:
-      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
-    volumes:
-      - ../services/ledger-writer:/app
-    depends_on:
-      test-db:
-        condition: service_healthy
+
 
   api-gateway:
     build:
@@ -90,8 +78,7 @@ services:
       - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
       - REDIS_URL=redis://test-redis:6379/0
     depends_on:
-      ledger-migrations:
-        condition: service_completed_successfully
+
       test-db:
         condition: service_healthy
       test-redis:
