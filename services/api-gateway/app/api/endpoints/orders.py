@@ -1,12 +1,11 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
+from opentelemetry import metrics
 
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.order import order_service
-
-from opentelemetry import metrics
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -17,25 +16,55 @@ orders_submitted_counter = meter.create_counter(
     description="Total number of trading orders submitted",
 )
 
-@router.post("/", response_model=OrderResponse, status_code=status.HTTP_202_ACCEPTED)
+from fastapi import Request
+
+from app.api.rate_limiter import RateLimiter
+
+
+async def ip_identifier(request: Request):
+    """
+    Use X-Forwarded-For header to identify clients if behind a proxy.
+    This allows our load testing tool (K6) to simulate multiple IP addresses.
+    """
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "127.0.0.1"
+
+
+@router.post(
+    "/",
+    response_model=OrderResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(RateLimiter(times=10, seconds=1))],
+)
 async def create_order(order_in: OrderCreate) -> Any:
     """
     Create a new trading order.
     Returns 202 Accepted as the order is accepted for processing via Kafka.
     """
-    orders_submitted_counter.add(1, {"symbol": order_in.symbol, "side": order_in.side.value})
+    orders_submitted_counter.add(
+        1, {"symbol": order_in.symbol, "side": order_in.side.value}
+    )
     return await order_service.create_order(order_in=order_in)
 
 
 import os
+
 import grpc
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
+
 from app.grpc_stubs import orders_pb2, orders_pb2_grpc
 
 QUERY_SERVICE_GRPC_URL = os.getenv("QUERY_SERVICE_GRPC_URL", "query-service:50051")
 
 
-@router.get("/{order_id}")
+@router.get(
+    "/{order_id}",
+    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
+)
 async def get_order(order_id: str) -> Any:
     """
     Get order by ID by calling the internal query-service via gRPC.
@@ -45,11 +74,11 @@ async def get_order(order_id: str) -> Any:
             stub = orders_pb2_grpc.OrderQueryServiceStub(channel)
             request = orders_pb2.GetOrderRequest(order_id=order_id)
             response = await stub.GetOrder(request)
-            
+
             # Since gRPC returns default values for missing strings, we check if ID is empty
             if not response.id:
                 raise HTTPException(status_code=404, detail="Order not found")
-                
+
             return {
                 "id": response.id,
                 "user_id": response.user_id,

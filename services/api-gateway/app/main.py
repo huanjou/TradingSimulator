@@ -25,6 +25,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start Kafka client: {e}")
 
+    # Startup: Initialize Redis for Custom RateLimiter
+    try:
+        import redis.asyncio as redis
+
+        from app.api import rate_limiter
+
+        rate_limiter.redis_client = redis.from_url(
+            str(settings.REDIS_URL), encoding="utf-8", decode_responses=True
+        )
+        logger.info("Custom RateLimiter initialized with Redis.")
+    except Exception as e:
+        logger.error(f"Failed to initialize RateLimiter: {e}")
+
     yield
 
     # Shutdown: Disconnect from Kafka
