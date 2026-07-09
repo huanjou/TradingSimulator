@@ -1,7 +1,7 @@
-import orjson
 import logging
 from typing import Any
 
+import orjson
 from aiokafka import AIOKafkaProducer
 
 from app.core.config import get_settings
@@ -30,12 +30,14 @@ class KafkaProducerClient:
             await self.producer.stop()
             logger.info("Kafka Producer stopped.")
 
-    async def send_event(self, topic: str, value: dict[str, Any], key: bytes | None = None):
+    async def send_event(
+        self, topic: str, value: dict[str, Any], key: bytes | None = None
+    ):
         """Publish an event to a specific Kafka topic."""
         if not self.producer:
             raise RuntimeError("Kafka Producer is not initialized. Call start() first.")
-        # Fire and forget instead of wait
-        self.producer.send(topic, value=value, key=key)
+        # We await the send coroutine to add to the buffer (it returns a Future for delivery)
+        await self.producer.send(topic, value=value, key=key)
         logger.debug(f"Event published to topic {topic}")
 
 

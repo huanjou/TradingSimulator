@@ -1,7 +1,6 @@
 import asyncio
 import time
 import uuid
-import json
 import random
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from app.core.config import settings
@@ -12,9 +11,11 @@ async def run_benchmark():
     broker = settings.KAFKA_BROKER
 
     print(f"Connecting to Kafka at {broker}...")
+    import orjson
+
     producer = AIOKafkaProducer(
         bootstrap_servers=broker,
-        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+        value_serializer=lambda v: orjson.dumps(v),
     )
 
     consumer = AIOKafkaConsumer(
@@ -22,7 +23,7 @@ async def run_benchmark():
         bootstrap_servers=broker,
         group_id=f"benchmark_group_{uuid.uuid4()}",
         auto_offset_reset="latest",
-        value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+        value_deserializer=lambda m: orjson.loads(m),
     )
 
     await producer.start()
@@ -64,12 +65,21 @@ async def run_benchmark():
 
     consumer_task = asyncio.create_task(consume_updates())
 
-    # Produce all messages
+    # Produce all messages concurrently in chunks
     produce_start = time.time()
-    for order_id, msg in messages:
-        await producer.send_and_wait(settings.KAFKA_ORDERS_TOPIC, msg)
-    produce_end = time.time()
 
+    chunk_size = 500
+    for i in range(0, len(messages), chunk_size):
+        chunk = messages[i : i + chunk_size]
+        publish_tasks = [
+            producer.send(
+                settings.KAFKA_ORDERS_TOPIC, msg, key=msg["symbol"].encode("utf-8")
+            )
+            for order_id, msg in chunk
+        ]
+        await asyncio.gather(*publish_tasks)
+
+    produce_end = time.time()
     print(f"Produced {num_orders} messages in {produce_end - produce_start:.2f}s")
 
     # Wait for consumer
