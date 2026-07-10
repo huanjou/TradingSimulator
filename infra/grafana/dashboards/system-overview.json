@@ -1,0 +1,104 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 4,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "title": "API Gateway: Requests Per Second",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_duration_milliseconds_count{exported_job=\"api-gateway\"}[1m])) by (http_method)",
+          "legendFormat": "RPS ({{http_method}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "API Gateway: P95 Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{exported_job=\"api-gateway\"}[1m])) by (le))",
+          "legendFormat": "P95 Latency",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "API Gateway: Errors (4xx/5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_duration_milliseconds_count{exported_job=\"api-gateway\", http_status_code=~\"4..|5..\"}[1m])) by (http_status_code)",
+          "legendFormat": "HTTP {{http_status_code}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Trading Engine: Orders Processed / sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(orders_processed_total{exported_job=\"trading-engine\"}[1m])) by (symbol)",
+          "legendFormat": "Orders ({{symbol}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Trading Engine: Trades Executed / sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(trades_executed_total{exported_job=\"trading-engine\"}[1m]))",
+          "legendFormat": "Trades",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Ledger Writer: Writes / sec",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(ledger_writes_total{exported_job=\"ledger-writer\"}[1m]))",
+          "legendFormat": "Ledger Writes",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(cache_writes_total{exported_job=\"ledger-writer\"}[1m]))",
+          "legendFormat": "Cache Writes",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["overview", "system"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "",
+  "title": "System Overview",
+  "uid": "system-overview",
+  "version": 1
+}

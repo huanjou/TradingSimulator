@@ -1,0 +1,11 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: "Internal Grafana Alert"
+    receivers:
+      - uid: "dummy-webhook"
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: "http://localhost:9999/dummy"

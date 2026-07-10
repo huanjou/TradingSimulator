@@ -1,0 +1,182 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: "System Reliability Alerts"
+    folder: "General"
+    interval: 10s
+    rules:
+      - uid: "api_gateway_latency"
+        title: "API Gateway High Latency Spike"
+        condition: "B"
+        data:
+          - refId: "A"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: "prometheus"
+            model:
+              editorMode: "code"
+              expr: 'histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket{exported_job="api-gateway"}[1m])) by (le))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: "A"
+          - refId: "B"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: "-100" # built-in expression engine
+            model:
+              conditions:
+                - evaluator:
+                    params: [200]
+                    type: "gt" # greater than 200ms
+                  operator:
+                    type: "and"
+                  query:
+                    params: ["A"]
+                  reducer:
+                    params: []
+                    type: "last"
+                  type: "query"
+              datasource:
+                type: "__expr__"
+                uid: "-100"
+              expression: "A"
+              hide: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: "last"
+              refId: "B"
+              type: "classic_conditions"
+        noDataState: "OK"
+        execErrState: "Error"
+        for: "0s"
+        labels:
+          severity: "warning"
+        annotations:
+          summary: "API Gateway Latency > 200ms"
+
+      - uid: "api_gateway_rate_limit"
+        title: "Rate Limiter Tripped (High 429s)"
+        condition: "B"
+        data:
+          - refId: "A"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: "prometheus"
+            model:
+              editorMode: "code"
+              expr: 'sum(rate(http_server_duration_milliseconds_count{exported_job="api-gateway", http_status_code="429"}[1m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: "A"
+          - refId: "B"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator:
+                    params: [10] # More than 10 rejected requests per second
+                    type: "gt"
+                  operator:
+                    type: "and"
+                  query:
+                    params: ["A"]
+                  reducer:
+                    params: []
+                    type: "last"
+                  type: "query"
+              datasource:
+                type: "__expr__"
+                uid: "-100"
+              expression: "A"
+              hide: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: "last"
+              refId: "B"
+              type: "classic_conditions"
+        noDataState: "OK"
+        execErrState: "Error"
+        for: "0s"
+        labels:
+          severity: "info"
+        annotations:
+          summary: "High volume of 429 Too Many Requests"
+
+      - uid: "trading_engine_halt"
+        title: "Trading Engine Halted (0 trades/s)"
+        condition: "C"
+        data:
+          - refId: "A"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: "prometheus"
+            model:
+              editorMode: "code"
+              expr: 'sum(rate(http_server_duration_milliseconds_count{exported_job="api-gateway", http_status_code="202"}[1m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: "A"
+          - refId: "B"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: "prometheus"
+            model:
+              editorMode: "code"
+              expr: 'sum(rate(orders_processed_total{exported_job="trading-engine"}[1m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: "B"
+          - refId: "C"
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator:
+                    params: [1] # API RPS > 1
+                    type: "gt"
+                  operator:
+                    type: "and"
+                  query:
+                    params: ["A"]
+                  reducer:
+                    params: []
+                    type: "last"
+                  type: "query"
+                - evaluator:
+                    params: [0] # Processed == 0
+                    type: "eq"
+                  operator:
+                    type: "and"
+                  query:
+                    params: ["B"]
+                  reducer:
+                    params: []
+                    type: "last"
+                  type: "query"
+              datasource:
+                type: "__expr__"
+                uid: "-100"
+              expression: "A"
+              hide: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: "last"
+              refId: "C"
+              type: "classic_conditions"
+        noDataState: "OK"
+        execErrState: "Error"
+        for: "0s"
+        labels:
+          severity: "critical"
+        annotations:
+          summary: "Orders accepted but not processed"

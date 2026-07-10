@@ -13,18 +13,14 @@ processors:
     num_traces: 1000
     expected_new_traces_per_sec: 100
     policies:
-      [
-        {
-          name: errors-policy,
-          type: status_code,
-          status_code: {status_codes: [ERROR]}
-        },
-        {
-          name: randomized-policy,
-          type: probabilistic,
-          probabilistic: {sampling_percentage: 100} # 100% успешных логов для разработки
-        }
-      ]
+      - name: errors-policy
+        type: status_code
+        status_code: 
+          status_codes: [ERROR]
+      - name: randomized-policy
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${env:SAMPLING_PERCENTAGE}
 
 exporters:
   otlp/jaeger:

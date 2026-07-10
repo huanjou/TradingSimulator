@@ -41,6 +41,9 @@ seed:
 load-test:
 	cd infra && docker compose -p load_test -f docker-compose.load.yml up --build --abort-on-container-exit --exit-code-from k6
 
+load-test-local:
+	docker run --rm -v "$(CURDIR)/tests/load:/scripts" --network infra_exchange_net -e API_URL=http://exchange_api_gateway:8000/api/v1/orders grafana/k6 run /scripts/orders.js
+
 limiter-test:
 	cd infra && docker compose -p limiter_test -f docker-compose.limiter.yml up --build --abort-on-container-exit --exit-code-from k6
 

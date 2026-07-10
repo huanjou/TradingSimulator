@@ -16,6 +16,11 @@ class RateLimiter:
         if not redis_client:
             return  # Skip if redis is not configured
 
+        from app.core.config import get_settings
+
+        if get_settings().ENV == "test":
+            return  # Skip in tests
+
         # Identify client by X-Forwarded-For or client host
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:

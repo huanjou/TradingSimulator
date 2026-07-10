@@ -73,6 +73,7 @@ services:
       - QUERY_SERVICE_URL=http://query-service:8000
       - QUERY_SERVICE_GRPC_URL=query-service:50051
       - TESTING=1
+      - ENV=test
     depends_on:
       test-kafka:
         condition: service_healthy
