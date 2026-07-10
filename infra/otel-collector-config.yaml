@@ -15,7 +15,7 @@ processors:
     policies:
       - name: errors-policy
         type: status_code
-        status_code: 
+        status_code:
           status_codes: [ERROR]
       - name: randomized-policy
         type: probabilistic
