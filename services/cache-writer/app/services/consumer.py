@@ -33,6 +33,18 @@ async def consume():
             result = await consumer.getmany(timeout_ms=1000, max_records=100)
             for tp, messages in result.items():
                 if messages:
+                    from opentelemetry import propagate, trace
+                    tracer = trace.get_tracer(__name__)
+                    
+                    links = []
+                    for msg in messages:
+                        if msg.headers:
+                            headers_dict = {k: v.decode("utf-8") for k, v in msg.headers}
+                            ctx = propagate.extract(headers_dict)
+                            span_context = trace.get_current_span(ctx).get_span_context()
+                            if span_context.is_valid:
+                                links.append(trace.Link(span_context))
+
                     structlog.contextvars.clear_contextvars()
                     structlog.contextvars.bind_contextvars(
                         batch_id=str(uuid.uuid4()),
@@ -40,9 +52,15 @@ async def consume():
                         partition=tp.partition,
                         messages_count=len(messages),
                     )
-                    logger.info("processing_batch")
-                    await process_orders(messages, topic=tp.topic)
-                    await consumer.commit({tp: messages[-1].offset + 1})
+                    
+                    with tracer.start_as_current_span(
+                        f"process_batch {tp.topic}",
+                        links=links,
+                        kind=trace.SpanKind.CONSUMER
+                    ):
+                        logger.info("processing_batch")
+                        await process_orders(messages, topic=tp.topic)
+                        await consumer.commit({tp: messages[-1].offset + 1})
 
     finally:
         await consumer.stop()

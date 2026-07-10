@@ -10,10 +10,11 @@ def extract_otel_trace_id(logger, log_method, event_dict):
     and injects them into the structlog event dictionary.
     """
     span = trace.get_current_span()
-    if span and span.is_recording():
+    if span:
         ctx = span.get_span_context()
-        event_dict["trace_id"] = trace.format_trace_id(ctx.trace_id)
-        event_dict["span_id"] = trace.format_span_id(ctx.span_id)
+        if ctx.is_valid:
+            event_dict["trace_id"] = trace.format_trace_id(ctx.trace_id)
+            event_dict["span_id"] = trace.format_span_id(ctx.span_id)
     return event_dict
 
 

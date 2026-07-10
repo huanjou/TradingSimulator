@@ -16,6 +16,7 @@ def setup_opentelemetry():
     """
     if os.getenv("TESTING") == "1":
         return
+
     resource = Resource(attributes={SERVICE_NAME: "trading-engine"})
 
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")

@@ -51,10 +51,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Initialize OpenTelemetry Instrumentation
-setup_opentelemetry(app)
-
 # Initialize Middlewares (CORS, etc)
 setup_middlewares(app)
+
+# Initialize OpenTelemetry Instrumentation AFTER middlewares so it wraps them
+setup_opentelemetry(app)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

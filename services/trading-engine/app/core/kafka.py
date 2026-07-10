@@ -49,19 +49,43 @@ class KafkaApp:
         if not messages:
             return
 
+        from opentelemetry import propagate, trace
+        tracer = trace.get_tracer(__name__)
+        
+        # Extract links from headers
+        links = []
+        for msg in messages:
+            if msg.headers:
+                headers_dict = {k: v.decode("utf-8") for k, v in msg.headers}
+                ctx = propagate.extract(headers_dict)
+                span_context = trace.get_current_span(ctx).get_span_context()
+                if span_context.is_valid:
+                    links.append(trace.Link(span_context))
+
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
             batch_id=str(uuid.uuid4()),
             topic=messages[0].topic,
             batch_size=len(messages),
         )
-        try:
-            orders_data = [orjson.loads(msg.value) for msg in messages]
-            logger.info("processing_batch", size=len(orders_data))
-            await self.message_handler(orders_data)
-        except Exception as e:
-            logger.error("batch_processing_failed", error=str(e), exc_info=True)
+        
+        with tracer.start_as_current_span(
+            f"process_batch {messages[0].topic}",
+            links=links,
+            kind=trace.SpanKind.CONSUMER
+        ):
+            try:
+                orders_data = [orjson.loads(msg.value) for msg in messages]
+                logger.info("processing_batch", size=len(orders_data))
+                await self.message_handler(orders_data)
+            except Exception as e:
+                logger.error("batch_processing_failed", error=str(e), exc_info=True)
 
     async def publish(self, topic: str, data: bytes, key: bytes | None = None):
         """Helper method to expose producer publish functionality. Returns a Future."""
-        return await self.producer.send(topic, data, key=key)
+        from opentelemetry import propagate
+        headers_dict = {}
+        propagate.inject(headers_dict)
+        kafka_headers = [(k, v.encode("utf-8")) for k, v in headers_dict.items()]
+
+        return await self.producer.send(topic, data, key=key, headers=kafka_headers)

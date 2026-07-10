@@ -61,9 +61,9 @@ async def process_orders(messages, topic: str = "orders"):
                             "symbol": data.get("symbol"),
                             "side": data.get("side"),
                             "order_type": data.get("order_type", data.get("type")),
-                            "quantity": float(data.get("quantity", 0.0)),
+                            "quantity": float(data.get("quantity") or 0.0),
                             "filled_quantity": 0.0,
-                            "price": float(data.get("price", 0.0)),
+                            "price": float(data.get("price") or 0.0),
                             "status": data.get("status", "PENDING"),
                         }
                     )
@@ -72,7 +72,7 @@ async def process_orders(messages, topic: str = "orders"):
                     order_id = data.get("order_id") or data.get("id")
                     status = data.get("status")
                     try:
-                        filled_quantity = float(data.get("filled_quantity", 0.0))
+                        filled_quantity = float(data.get("filled_quantity") or 0.0)
                     except (ValueError, TypeError):
                         filled_quantity = 0.0
 
