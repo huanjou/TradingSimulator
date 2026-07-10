@@ -41,6 +41,9 @@ seed:
 load-test:
 	cd infra && docker compose -p load_test -f docker-compose.load.yml up --build --abort-on-container-exit --exit-code-from k6
 
+limiter-test:
+	cd infra && docker compose -p limiter_test -f docker-compose.limiter.yml up --build --abort-on-container-exit --exit-code-from k6
+
 benchmark-engine-core:
 	docker exec exchange_trading_engine python -m tests.benchmark_core
 

@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  test-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: test_db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U test_user -d test_db" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  test-kafka:
+    image: apache/kafka:3.7.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://test-kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@test-kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  test-redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      - ../services/api-gateway:/app
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
+      - KAFKA_BROKER=test-kafka:9092
+      - QUERY_SERVICE_URL=http://query-service:8000
+      - QUERY_SERVICE_GRPC_URL=query-service:50051
+      - REDIS_URL=redis://test-redis:6379/0
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-kafka:
+        condition: service_healthy
+      test-redis:
+        condition: service_started
+    command: ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ledger-writer:
+    build:
+      context: ../services/ledger-writer
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
+    depends_on:
+
+      test-db:
+        condition: service_healthy
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/ledger-writer:/app
+
+  cache-writer:
+    build:
+      context: ../services/cache-writer
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - REDIS_URL=redis://test-redis:6379/0
+    depends_on:
+      test-redis:
+        condition: service_healthy
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/cache-writer:/app
+
+  query-service:
+    build:
+      context: ../services/query-service
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
+      - REDIS_URL=redis://test-redis:6379/0
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    volumes:
+      - ../services/query-service:/app
+
+  trading-engine:
+    build:
+      context: ../services/trading-engine
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/trading-engine:/app
+
+  k6:
+    image: grafana/k6:latest
+    volumes:
+      - ../tests/load:/scripts
+    environment:
+      - API_URL=http://api-gateway:8000/api/v1/orders
+    command: run /scripts/limiter.js
+    depends_on:
+      api-gateway:
+        condition: service_healthy
