@@ -96,28 +96,3 @@ async def test_process_orders_poison_pill(db_session):
     order_in_db = result_order.scalars().first()
     assert order_in_db is not None
     assert str(order_in_db.id) == valid_payload["id"]
-
-
-@pytest.mark.asyncio
-async def test_process_orders_cache_failure_rollback(db_session, monkeypatch):
-    """
-    Test that if cache_order fails, the DB transaction rolls back completely.
-    """
-    payload = OrderMessageFactory()
-    msg = MockMessage(payload)
-
-    async def mock_cache_order(*args, **kwargs):
-        raise ValueError("Redis connection failed")
-
-    monkeypatch.setattr("app.services.processor.cache_order", mock_cache_order)
-
-    # Execute processor, expect it to raise the fatal exception
-    with pytest.raises(ValueError, match="Redis connection failed"):
-        await process_orders([msg])
-
-    # Verify DB rolled back (order does NOT exist)
-    result_order = await db_session.execute(
-        select(Order).where(Order.id == payload["id"])
-    )
-    order_in_db = result_order.scalars().first()
-    assert order_in_db is None

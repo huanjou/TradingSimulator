@@ -63,7 +63,7 @@ services:
       timeout: 5s
       retries: 5
 
-  test-runner:
+  test-api-gateway:
     build:
       context: ../services/api-gateway
       dockerfile: Dockerfile
@@ -131,3 +131,65 @@ services:
         condition: service_healthy
     volumes:
       - ../services/query-service:/app
+
+  test-trading-engine:
+    build:
+      context: ../services/trading-engine
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - TESTING=1
+      - ENV=test
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/trading-engine:/app
+    command: >
+      bash -c "pytest -v"
+
+  test-ledger-writer:
+    build:
+      context: ../services/ledger-writer
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@postgres-primary:5432/test_db
+      - REDIS_URL=redis://redis:6379/0
+      - TESTING=1
+      - ENV=test
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/ledger-writer:/app
+    command: >
+      bash -c "pytest -v"
+
+  test-query-service:
+    build:
+      context: ../services/query-service
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@postgres-replica:5432/test_db
+      - REDIS_URL=redis://redis:6379/0
+      - TESTING=1
+      - ENV=test
+    depends_on:
+      postgres-replica:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../services/query-service:/app
+    command: >
+      bash -c "pytest -v"

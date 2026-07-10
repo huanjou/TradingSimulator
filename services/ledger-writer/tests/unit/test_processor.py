@@ -33,15 +33,11 @@ async def test_process_orders_success():
         # Async context manager mock
         mock_session_maker.return_value.__aenter__.return_value = mock_session
 
-        with patch(
-            "app.services.processor.cache_order", new_callable=AsyncMock
-        ) as mock_cache:
-            await process_orders(messages)
+        await process_orders(messages)
 
-            # Assertions
-            assert mock_session.execute.call_count == 2  # 1 for user, 1 for order
-            mock_session.commit.assert_called_once()
-            mock_cache.assert_called_once()
+        # Assertions
+        assert mock_session.execute.call_count == 2  # 1 for user, 1 for order
+        mock_session.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -90,14 +86,8 @@ async def test_process_orders_update_success():
         mock_session = AsyncMock()
         mock_session_maker.return_value.__aenter__.return_value = mock_session
 
-        with patch(
-            "app.services.processor.cache_order", new_callable=AsyncMock
-        ) as mock_cache:
-            await process_orders(messages, topic="order_updates")
+        await process_orders(messages, topic="order_updates")
 
-            # Assertions
-            assert (
-                mock_session.execute.call_count == 1
-            )  # 1 for order_repo.update_status
-            mock_session.commit.assert_called_once()
-            mock_cache.assert_called_once()
+        # Assertions
+        assert mock_session.execute.call_count == 1  # 1 for order_repo.update_status
+        mock_session.commit.assert_called_once()

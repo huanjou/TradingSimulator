@@ -25,9 +25,9 @@ async def process_orders(messages, topic: str = "orders"):
     """
     async with AsyncSessionLocal() as session:
         try:
-            order_inserts = []
-            user_inserts = []
-            order_updates = []
+            order_inserts = {}
+            user_inserts = {}
+            order_updates = {}
 
             for msg in messages:
                 try:
@@ -46,17 +46,18 @@ async def process_orders(messages, topic: str = "orders"):
                     continue
 
                 if topic == "orders":
-                    user_inserts.append(
-                        {
-                            "id": data.get("user_id"),
-                            "email": f"user_{data.get('user_id')}@test.com",
+                    user_id = data.get("user_id")
+                    if user_id:
+                        user_inserts[user_id] = {
+                            "id": user_id,
+                            "email": f"user_{user_id}@test.com",
                             "hashed_password": "fake",
                         }
-                    )
 
-                    order_inserts.append(
-                        {
-                            "id": data.get("id"),
+                    order_id = data.get("id")
+                    if order_id:
+                        order_inserts[order_id] = {
+                            "id": order_id,
                             "user_id": data.get("user_id"),
                             "symbol": data.get("symbol"),
                             "side": data.get("side"),
@@ -66,7 +67,6 @@ async def process_orders(messages, topic: str = "orders"):
                             "price": float(data.get("price") or 0.0),
                             "status": data.get("status", "PENDING"),
                         }
-                    )
 
                 elif topic == "order_updates":
                     order_id = data.get("order_id") or data.get("id")
@@ -77,24 +77,26 @@ async def process_orders(messages, topic: str = "orders"):
                         filled_quantity = 0.0
 
                     if order_id and status:
-                        order_updates.append(
-                            {
-                                "id": order_id,
-                                "status": status,
-                                "filled_quantity": filled_quantity,
-                            }
-                        )
+                        order_updates[order_id] = {
+                            "id": order_id,
+                            "status": status,
+                            "filled_quantity": filled_quantity,
+                        }
 
-            if user_inserts:
-                await user_repo.upsert_bulk(session, user_inserts)
-            if order_inserts:
-                await order_repo.upsert_bulk(session, order_inserts)
+            user_inserts_list = list(user_inserts.values())
+            order_inserts_list = list(order_inserts.values())
+            order_updates_list = list(order_updates.values())
+
+            if user_inserts_list:
+                await user_repo.upsert_bulk(session, user_inserts_list)
+            if order_inserts_list:
+                await order_repo.upsert_bulk(session, order_inserts_list)
                 ledger_writes_counter.add(len(order_inserts), {"type": "order_insert"})
-            if order_updates:
+            if order_updates_list:
                 try:
-                    await order_repo.update_status_bulk(session, order_updates)
+                    await order_repo.update_status_bulk(session, order_updates_list)
                     ledger_writes_counter.add(
-                        len(order_updates), {"type": "order_update"}
+                        len(order_updates_list), {"type": "order_update"}
                     )
                 except Exception as e:
                     # SQLAlchemy raises StaleDataError if it expects to update N rows but updates < N rows.
@@ -103,7 +105,7 @@ async def process_orders(messages, topic: str = "orders"):
                         "bulk_update_failed_fallback_to_individual", error=str(e)
                     )
                     await session.rollback()
-                    for update_data in order_updates:
+                    for update_data in order_updates_list:
                         try:
                             await order_repo.update_status(
                                 session,

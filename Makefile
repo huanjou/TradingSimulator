@@ -15,9 +15,17 @@ build:
 logs:
 	cd infra && docker compose logs -f
 
-test:
+test: test-clean
+	cd infra && docker compose -f docker-compose.test.yml up -d postgres-primary postgres-replica redis test-kafka trading-engine ledger-writer query-service
+	python -c "import time; time.sleep(10)"
+	cd infra && docker compose -f docker-compose.test.yml run --rm test-api-gateway || (make test-clean && exit 1)
+	cd infra && docker compose -f docker-compose.test.yml run --rm test-trading-engine || (make test-clean && exit 1)
+	cd infra && docker compose -f docker-compose.test.yml run --rm test-ledger-writer || (make test-clean && exit 1)
+	cd infra && docker compose -f docker-compose.test.yml run --rm test-query-service || (make test-clean && exit 1)
+	make test-clean
+
+test-clean:
 	cd infra && docker compose -f docker-compose.test.yml down -v
-	cd infra && docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner
 
 # Быстрый запуск тестов для ledger-writer (внутри уже работающего контейнера)
 test-ledger:
