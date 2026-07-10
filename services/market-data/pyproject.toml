@@ -22,11 +22,9 @@ dependencies = [
     "websockets (>=14.0,<15.0)"
 ]
 
-[dependency-groups]
-dev = [
-    "pytest (>=9.1.1,<10.0.0)",
-    "pytest-asyncio (>=1.4.0,<2.0.0)"
-]
+[tool.poetry.group.dev.dependencies]
+pytest = ">=9.1.1,<10.0.0"
+pytest-asyncio = ">=1.4.0,<2.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
