@@ -8,7 +8,7 @@ from app.core.config import settings
 
 @pytest.mark.asyncio
 async def test_kafka_integration():
-    # 1. Start Producer to send mock order
+    # 1. Start Producer to send mock order and market data
     producer = AIOKafkaProducer(bootstrap_servers=settings.KAFKA_BROKER)
     await producer.start()
 
@@ -27,17 +27,10 @@ async def test_kafka_integration():
         # Create a unique symbol for isolation
         symbol = f"TEST_{uuid.uuid4().hex[:8]}"
 
-        # We will post a SELL limit order and then a BUY market order
-        sell_order = {
-            "id": str(uuid.uuid4()),
-            "user_id": "maker",
-            "symbol": symbol,
-            "side": "SELL",
-            "order_type": "LIMIT",
-            "quantity": "5.0",
-            "price": "100.0",
-        }
+        # We will post market data for this symbol
+        market_data = {"symbol": symbol, "bid_price": 50000.0, "ask_price": 50010.0}
 
+        # And then post a MARKET BUY order
         buy_order = {
             "id": str(uuid.uuid4()),
             "user_id": "taker",
@@ -47,24 +40,26 @@ async def test_kafka_integration():
             "quantity": "5.0",
         }
 
-        # Publish orders
+        # Publish market data
         await producer.send_and_wait(
-            settings.KAFKA_ORDERS_TOPIC, json.dumps(sell_order).encode("utf-8")
+            settings.KAFKA_MARKET_DATA_TOPIC, json.dumps(market_data).encode("utf-8")
         )
+
+        # Wait a tiny bit to ensure market data is processed first
+        await asyncio.sleep(1)
+
+        # Publish order
         await producer.send_and_wait(
             settings.KAFKA_ORDERS_TOPIC, json.dumps(buy_order).encode("utf-8")
         )
 
         # Now listen for the results
         # We expect:
-        # 1. OrderUpdate for SELL (PENDING) -> but wait, currently our engine doesn't emit PENDING for first insertion, only after matching. Actually it does emit PENDING.
-        # 2. TradeEvent
-        # 3. OrderUpdate for SELL (FILLED)
-        # 4. OrderUpdate for BUY (FILLED)
+        # 1. TradeEvent
+        # 2. OrderUpdate for BUY (FILLED)
 
         events_received = {
             "trades": 0,
-            "updates_sell_filled": False,
             "updates_buy_filled": False,
         }
 
@@ -73,19 +68,14 @@ async def test_kafka_integration():
             async for msg in consumer:
                 payload = json.loads(msg.value.decode("utf-8"))
 
-                # Only process messages for our test symbol (to avoid cross-talk with running app)
+                # Only process messages for our test symbol
                 if msg.topic == settings.KAFKA_TRADES_TOPIC:
                     if payload.get("symbol") == symbol:
                         events_received["trades"] += 1
                         assert payload["quantity"] == "5.0"
-                        assert payload["price"] == "100.0"
+                        assert payload["price"] == "50010.0"  # BUY at ASK
 
                 elif msg.topic == settings.KAFKA_ORDER_UPDATES_TOPIC:
-                    if (
-                        payload.get("order_id") == sell_order["id"]
-                        and payload.get("status") == "FILLED"
-                    ):
-                        events_received["updates_sell_filled"] = True
                     if (
                         payload.get("order_id") == buy_order["id"]
                         and payload.get("status") == "FILLED"
@@ -94,7 +84,6 @@ async def test_kafka_integration():
 
                 if (
                     events_received["trades"] == 1
-                    and events_received["updates_sell_filled"]
                     and events_received["updates_buy_filled"]
                 ):
                     return True  # Success
