@@ -193,3 +193,37 @@ services:
       - ../services/query-service:/app
     command: >
       bash -c "pytest -v"
+
+  market-data:
+    build:
+      context: ../services/market-data
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_MARKET_DATA_TOPIC=market_data
+      - BINANCE_WS_URL=wss://stream.binance.com:9443/ws/btcusdt@bookTicker
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/market-data:/app
+
+  test-market-data:
+    build:
+      context: ../services/market-data
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_MARKET_DATA_TOPIC=market_data
+      - BINANCE_WS_URL=wss://stream.binance.com:9443/ws/btcusdt@bookTicker
+      - TESTING=1
+      - ENV=test
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/market-data:/app
+    command: >
+      bash -c "pytest -v"

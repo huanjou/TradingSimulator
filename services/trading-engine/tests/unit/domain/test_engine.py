@@ -1,58 +1,114 @@
-from app.domain.engine import MatchingEngine
-from app.domain.order import OrderSide
-from tests.unit.domain.test_order_book import create_order
+import pytest
 from decimal import Decimal
+from app.domain.engine import MatchingEngine
+from app.domain.order import Order, OrderSide, OrderType, OrderStatus
 
 
-def test_engine_routes_orders():
-    engine = MatchingEngine()
-
-    # 1. Add order for BTC/USD
-    btc_buy = create_order(
-        side=OrderSide.BUY, price="50000", quantity="1.0", symbol="BTC/USD"
-    )
-    trades_1, updates_1 = engine.process_order(btc_buy)
-
-    assert len(trades_1) == 0
-    assert len(updates_1) == 1
-
-    # 2. Add order for ETH/USD
-    eth_buy = create_order(
-        side=OrderSide.BUY, price="3000", quantity="10.0", symbol="ETH/USD"
-    )
-    trades_2, updates_2 = engine.process_order(eth_buy)
-
-    assert len(trades_2) == 0
-
-    # Verify that engine created two separate order books
-    assert "BTC/USD" in engine.order_books
-    assert "ETH/USD" in engine.order_books
-
-    assert len(engine.order_books["BTC/USD"].bids) == 1
-    assert len(engine.order_books["ETH/USD"].bids) == 1
+@pytest.fixture
+def engine():
+    return MatchingEngine()
 
 
-def test_engine_matches_orders():
-    engine = MatchingEngine()
-
-    sell_order = create_order(
-        side=OrderSide.SELL,
-        price="50000",
-        quantity="1.0",
-        symbol="BTC/USD",
-        user_id="user1",
-    )
-    engine.process_order(sell_order)
-
-    buy_order = create_order(
+def test_process_market_order_no_price(engine):
+    order = Order(
+        id="order1",
+        user_id="u1",
+        symbol="BTCUSDT",
         side=OrderSide.BUY,
-        price="50000",
-        quantity="1.0",
-        symbol="BTC/USD",
-        user_id="user2",
+        order_type=OrderType.MARKET,
+        quantity=Decimal("1.5"),
     )
-    trades, updates = engine.process_order(buy_order)
+    trades, updates = engine.process_order(order)
+
+    assert len(trades) == 0
+    assert len(updates) == 1
+    assert updates[0].status == OrderStatus.CANCELED
+
+
+def test_process_market_order_with_price(engine):
+    engine.process_market_data("BTCUSDT", Decimal("50000"), Decimal("50010"))
+
+    order = Order(
+        id="order2",
+        user_id="u1",
+        symbol="BTCUSDT",
+        side=OrderSide.BUY,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("1.5"),
+    )
+    trades, updates = engine.process_order(order)
 
     assert len(trades) == 1
-    assert trades[0].symbol == "BTC/USD"
+    assert trades[0].price == Decimal("50010")  # BUY at ASK
+    assert trades[0].quantity == Decimal("1.5")
+    assert trades[0].maker_order_id == "SYSTEM"
+
+    assert len(updates) == 1
+    assert updates[0].status == OrderStatus.FILLED
+    assert updates[0].filled_quantity == Decimal("1.5")
+
+
+def test_process_limit_order_no_cross(engine):
+    engine.process_market_data("BTCUSDT", Decimal("50000"), Decimal("50010"))
+
+    order = Order(
+        id="order3",
+        user_id="u1",
+        symbol="BTCUSDT",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        price=Decimal("49000"),
+        quantity=Decimal("1.0"),
+    )
+    trades, updates = engine.process_order(order)
+
+    assert len(trades) == 0
+    assert len(updates) == 1
+    assert updates[0].status == OrderStatus.PENDING
+
+    # Check that it's pending
+    assert len(engine.pending_orders["BTCUSDT"]) == 1
+
+
+def test_process_limit_order_cross_immediate(engine):
+    engine.process_market_data("BTCUSDT", Decimal("50000"), Decimal("50010"))
+
+    order = Order(
+        id="order4",
+        user_id="u1",
+        symbol="BTCUSDT",
+        side=OrderSide.SELL,
+        order_type=OrderType.LIMIT,
+        price=Decimal("49000"),  # Selling lower than Bid (crosses)
+        quantity=Decimal("1.0"),
+    )
+    trades, updates = engine.process_order(order)
+
+    assert len(trades) == 1
+    assert trades[0].price == Decimal("50000")  # SELL at BID
+    assert len(updates) == 1
+    assert updates[0].status == OrderStatus.FILLED
+
+
+def test_process_market_data_fills_pending(engine):
+    order = Order(
+        id="order5",
+        user_id="u1",
+        symbol="BTCUSDT",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        price=Decimal("50000"),
+        quantity=Decimal("1.0"),
+    )
+    engine.process_order(order)
+    assert len(engine.pending_orders["BTCUSDT"]) == 1
+
+    # Price drops to 50000 ask, should fill
+    trades, updates = engine.process_market_data(
+        "BTCUSDT", Decimal("49990"), Decimal("50000")
+    )
+
+    assert len(trades) == 1
     assert trades[0].price == Decimal("50000")
+    assert trades[0].taker_order_id == str(order.id)
+    assert len(engine.pending_orders["BTCUSDT"]) == 0

@@ -324,6 +324,7 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - KAFKA_MARKET_DATA_TOPIC=market_data
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
@@ -331,6 +332,26 @@ services:
         condition: service_healthy
     volumes:
       - ../services/trading-engine:/app
+    networks:
+      - exchange_net
+
+  market-data:
+    build:
+      context: ../services/market-data
+      dockerfile: Dockerfile
+      target: development
+    container_name: exchange_market_data
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - KAFKA_MARKET_DATA_TOPIC=market_data
+      - BINANCE_WS_URL=wss://stream.binance.com:9443/ws/btcusdt@bookTicker
+      - ENV=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/market-data:/app
     networks:
       - exchange_net
 

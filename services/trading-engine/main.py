@@ -43,7 +43,10 @@ async def main():
         updates_topic=settings.KAFKA_ORDER_UPDATES_TOPIC,
     )
 
-    app = KafkaApp(message_handler=service.handle_orders_batch)
+    app = KafkaApp(
+        order_handler=service.handle_orders_batch,
+        market_data_handler=service.handle_market_data_batch,
+    )
     adapter.kafka_app = app
 
     logger.info("Starting Trading Engine...")

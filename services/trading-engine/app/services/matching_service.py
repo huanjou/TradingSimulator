@@ -91,3 +91,61 @@ class MatchingService:
 
         except Exception as e:
             logger.error("order_batch_handling_failed", error=str(e), exc_info=True)
+
+    async def handle_market_data_batch(self, market_data_batch: list[dict]) -> None:
+        try:
+            publish_futures = []
+
+            for md in market_data_batch:
+                from decimal import Decimal
+
+                symbol = md.get("symbol")
+                bid = Decimal(str(md.get("bid_price", 0)))
+                ask = Decimal(str(md.get("ask_price", 0)))
+
+                trades, updates = self.engine.process_market_data(symbol, bid, ask)
+
+                trades_executed_counter.add(len(trades), {"symbol": symbol})
+
+                # Publish results (gather futures)
+                for trade in trades:
+                    trade_bytes = orjson.dumps(trade.model_dump(mode="json"))
+                    publish_futures.append(
+                        self.publisher.publish(
+                            self.trades_topic,
+                            trade_bytes,
+                            key=symbol.encode("utf-8"),
+                        )
+                    )
+                    logger.info(
+                        "trade_published_from_md",
+                        trade_id=str(trade.id),
+                        maker_order_id=str(trade.maker_order_id),
+                        taker_order_id=str(trade.taker_order_id),
+                    )
+
+                for update in updates:
+                    update_bytes = orjson.dumps(update.model_dump(mode="json"))
+                    publish_futures.append(
+                        self.publisher.publish(
+                            self.updates_topic,
+                            update_bytes,
+                            key=symbol.encode("utf-8"),
+                        )
+                    )
+                    logger.info(
+                        "order_update_published_from_md",
+                        order_id=str(update.order_id),
+                        status=update.status.value,
+                    )
+
+            # Await all publishes concurrently
+            if publish_futures:
+                import asyncio
+
+                await asyncio.gather(*publish_futures)
+
+        except Exception as e:
+            logger.error(
+                "market_data_batch_handling_failed", error=str(e), exc_info=True
+            )
