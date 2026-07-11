@@ -375,6 +375,26 @@ services:
     networks:
       - exchange_net
 
+  user-service:
+    build:
+      context: ../services/user-service
+      dockerfile: Dockerfile
+    container_name: exchange_user_service
+    ports:
+      - "8003:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
+      - JWT_SECRET=supersecretjwtkey123
+      - ENVIRONMENT=development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    volumes:
+      - ../services/user-service:/app
+    networks:
+      - exchange_net
+
   frontend:
     build:
       context: ../frontend
