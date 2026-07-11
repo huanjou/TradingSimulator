@@ -5,20 +5,38 @@ import dynamic from 'next/dynamic';
 import OrderEntry from '@/components/OrderEntry';
 import OrderHistory from '@/components/OrderHistory';
 import TradesFeed from '@/components/TradesFeed';
-import { Activity } from 'lucide-react';
+import AuthScreen from '@/components/AuthScreen';
+import { Activity, LogOut } from 'lucide-react';
+import { useAuthStore } from '@/store/useAuthStore';
+import api from '@/lib/axios';
 
 // Disable SSR for TradingView chart as it requires window object
 const TVChart = dynamic(() => import('@/components/TVChart'), { ssr: false });
 
 export default function Dashboard() {
+  const { user, isAuthenticated, setUser, logout } = useAuthStore();
   const [symbol, setSymbol] = useState('BTC/USD');
   const [currentTrade, setCurrentTrade] = useState<{ price: number; timestamp: string } | null>(
     null,
   );
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Hardcoded user ID for MVP
-  const USER_ID = '11111111-1111-1111-1111-111111111111';
+  // Check auth status on mount
+  React.useEffect(() => {
+    api.get('/api/v1/users/me')
+      .then(res => setUser(res.data))
+      .catch(() => setUser(null))
+      .finally(() => setIsInitializing(false));
+  }, [setUser]);
+
+  if (isInitializing) {
+    return <div className="min-h-screen bg-black flex items-center justify-center"><div className="text-emerald-500 animate-pulse">Loading...</div></div>;
+  }
+
+  if (!isAuthenticated) {
+    return <AuthScreen />;
+  }
 
   // TradingView uses different symbol format e.g., BINANCE:BTCUSD
   const tvSymbol = `BINANCE:${symbol.replace('/', '')}`;
@@ -30,9 +48,13 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <Activity className="w-6 h-6 text-emerald-500" />
           <h1 className="text-xl font-bold tracking-tight">Antigravity Exchange</h1>
+          <span className="bg-zinc-800 text-zinc-400 text-xs px-2 py-1 rounded ml-2 hidden md:inline-block">
+            {user?.email}
+          </span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2">
           {['BTC/USD', 'ETH/USD', 'SOL/USD'].map((s) => (
             <button
               key={s}
@@ -46,6 +68,18 @@ export default function Dashboard() {
               {s}
             </button>
           ))}
+          </div>
+          
+          <button 
+            onClick={async () => {
+              await api.post('/api/v1/auth/logout');
+              logout();
+            }}
+            className="p-2 text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-md transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
@@ -58,7 +92,7 @@ export default function Dashboard() {
           </div>
 
           <div className="h-64">
-            <OrderHistory userId={USER_ID} refreshTrigger={refreshTrigger} />
+            <OrderHistory refreshTrigger={refreshTrigger} />
           </div>
         </div>
 
@@ -67,7 +101,6 @@ export default function Dashboard() {
           <div className="shrink-0">
             <OrderEntry
               symbol={symbol}
-              userId={USER_ID}
               currentPrice={currentTrade?.price || null}
               onOrderSubmitted={() => setRefreshTrigger((prev) => prev + 1)}
             />

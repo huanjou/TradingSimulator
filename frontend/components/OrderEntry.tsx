@@ -1,22 +1,21 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { cn } from '@/lib/utils';
+import api from '@/lib/axios';
+import { useAuthStore } from '@/store/useAuthStore';
 import { ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
 interface OrderEntryProps {
   symbol: string;
-  userId: string;
   currentPrice: number | null;
   onOrderSubmitted?: () => void;
 }
 
 export default function OrderEntry({
   symbol,
-  userId,
   currentPrice,
   onOrderSubmitted,
 }: OrderEntryProps) {
+  const { user } = useAuthStore();
   const [quantity, setQuantity] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,8 +29,7 @@ export default function OrderEntry({
     setLoading(true);
 
     try {
-      await axios.post('/api/v1/orders/', {
-        user_id: userId,
+      await api.post('/api/v1/orders/', {
         symbol,
         side,
         order_type: 'MARKET',

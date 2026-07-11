@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '@/lib/axios';
 import { format } from 'date-fns';
 import { RefreshCw } from 'lucide-react';
 
@@ -16,18 +16,17 @@ interface Order {
 }
 
 interface OrderHistoryProps {
-  userId: string;
   refreshTrigger: number;
 }
 
-export default function OrderHistory({ userId, refreshTrigger }: OrderHistoryProps) {
+export default function OrderHistory({ refreshTrigger }: OrderHistoryProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`/api/v1/orders/user/${userId}?limit=20`);
+      const response = await api.get(`/api/v1/orders/user/me?limit=20`);
       setOrders(response.data);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
@@ -38,7 +37,7 @@ export default function OrderHistory({ userId, refreshTrigger }: OrderHistoryPro
 
   useEffect(() => {
     fetchOrders();
-  }, [userId, refreshTrigger]);
+  }, [refreshTrigger]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
