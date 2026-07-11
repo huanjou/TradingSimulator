@@ -10,14 +10,14 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 
-def setup_opentelemetry():
+def setup_telemetry(service_name: str):
     """
     Configures OpenTelemetry Tracing and Metrics to export to OTel Collector.
     """
     if os.getenv("TESTING") == "1":
         return
 
-    resource = Resource(attributes={SERVICE_NAME: "trading-engine"})
+    resource = Resource(attributes={SERVICE_NAME: service_name})
 
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")
 

@@ -27,9 +27,8 @@ class MatchingEngine:
         order.status = OrderStatus.FILLED
 
         trade = TradeEvent(
+            order_id=order.id,
             symbol=order.symbol,
-            maker_order_id="SYSTEM",  # Executed against the system/market
-            taker_order_id=order.id,
             price=price,
             quantity=trade_qty,
         )

@@ -4,11 +4,21 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
-from app.services.order_service import get_order_by_id
+from app.db.session import get_db, get_primary_db
+from app.services.order_service import get_order_by_id, get_pending_orders
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()
+
+
+@router.get("/pending")
+async def get_all_pending_orders(db: AsyncSession = Depends(get_primary_db)):
+    """
+    Get all pending orders for state recovery.
+    """
+    logger.info("fetching_pending_orders")
+    orders = await get_pending_orders(db)
+    return orders
 
 
 @router.get("/{order_id}")

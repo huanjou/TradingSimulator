@@ -202,7 +202,8 @@ services:
     environment:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_MARKET_DATA_TOPIC=market_data
-      - BINANCE_WS_URL=wss://stream.binance.com:9443/ws/btcusdt@bookTicker
+      - MARKET_PROVIDER=binance
+      - MARKET_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
     depends_on:
       test-kafka:
         condition: service_healthy
@@ -217,7 +218,8 @@ services:
     environment:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_MARKET_DATA_TOPIC=market_data
-      - BINANCE_WS_URL=wss://stream.binance.com:9443/ws/btcusdt@bookTicker
+      - MARKET_PROVIDER=binance
+      - MARKET_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
       - TESTING=1
       - ENV=test
     depends_on:

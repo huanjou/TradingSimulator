@@ -1,68 +1,50 @@
 import asyncio
-import json
-
 import structlog
-import websockets
-from aiokafka import AIOKafkaProducer
 
 from app.core.config import settings
 from app.core.telemetry import setup_telemetry
+from app.core.dependencies import get_provider, get_config_consumer
+from app.services.publisher import MarketDataPublisher
+from app.services.config_consumer import consume_system_events
 
 logger = structlog.get_logger(__name__)
 
 
-async def get_kafka_producer():
-    producer = AIOKafkaProducer(
-        bootstrap_servers=settings.KAFKA_BROKER,
-        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-    )
-    await producer.start()
-    return producer
-
-
 async def main():
     setup_telemetry("market-data")
-    logger.info("Starting market-data service")
+    logger.info("Starting market-data service", provider=settings.MARKET_PROVIDER)
 
-    producer = await get_kafka_producer()
+    publisher = MarketDataPublisher(
+        broker_url=settings.KAFKA_BROKER, topic=settings.KAFKA_MARKET_DATA_TOPIC
+    )
+    await publisher.start()
 
-    try:
-        while True:
-            try:
-                async with websockets.connect(settings.BINANCE_WS_URL) as ws:
-                    logger.info(
-                        "Connected to Binance WebSocket", url=settings.BINANCE_WS_URL
-                    )
-                    async for message in ws:
-                        data = json.loads(message)
-                        # data example for bookTicker:
-                        # {
-                        #   "u":400900217,
-                        #   "s":"BTCUSDT",
-                        #   "b":"25201.00000000",
-                        #   "B":"31.21000000",
-                        #   "a":"25201.01000000",
-                        #   "A":"40.66000000"
-                        # }
+    while True:
+        try:
+            # We initialize the provider inside the loop so that if it crashes completely,
+            # we can fetch fresh config and restart it
+            provider = get_provider()
+            consumer = get_config_consumer()
 
-                        market_event = {
-                            "symbol": data.get("s"),
-                            "bid_price": float(data.get("b", 0)),
-                            "ask_price": float(data.get("a", 0)),
-                            "timestamp": data.get("E", 0),  # event time if available
-                        }
+            consumer_task = asyncio.create_task(
+                consume_system_events(consumer, provider)
+            )
 
-                        await producer.send_and_wait(
-                            settings.KAFKA_MARKET_DATA_TOPIC, value=market_event
-                        )
+            async for event in provider.stream_prices():
+                await publisher.publish(event)
 
-            except Exception as e:
-                logger.error(
-                    "WebSocket connection error. Reconnecting...", error=str(e)
-                )
-                await asyncio.sleep(5)
-    finally:
-        await producer.stop()
+        except asyncio.CancelledError:
+            logger.info("Service shutting down gracefully")
+            consumer_task.cancel()
+            break
+        except Exception as e:
+            logger.error(
+                "Unhandled error in main loop. Restarting in 5s...", error=str(e)
+            )
+            consumer_task.cancel()
+            await asyncio.sleep(5)
+
+    await publisher.stop()
 
 
 if __name__ == "__main__":

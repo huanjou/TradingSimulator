@@ -96,3 +96,33 @@ async def get_order(order_id: str) -> Any:
         if e.code() == grpc.StatusCode.NOT_FOUND:
             raise HTTPException(status_code=404, detail="Order not found")
         raise HTTPException(status_code=503, detail="Query service unavailable")
+
+
+@router.get(
+    "/{order_id}/trades",
+    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
+)
+async def get_order_trades(order_id: str) -> Any:
+    """
+    Get trades for an order by calling the internal query-service via gRPC.
+    """
+    try:
+        async with grpc.aio.insecure_channel(QUERY_SERVICE_GRPC_URL) as channel:
+            stub = orders_pb2_grpc.OrderQueryServiceStub(channel)
+            request = orders_pb2.GetTradesRequest(order_id=order_id)
+            response = await stub.GetTrades(request)
+
+            return [
+                {
+                    "id": trade.id,
+                    "order_id": trade.order_id,
+                    "symbol": trade.symbol,
+                    "price": trade.price,
+                    "quantity": trade.quantity,
+                    "timestamp": trade.timestamp,
+                }
+                for trade in response.trades
+            ]
+    except grpc.aio.AioRpcError as e:
+        logger.error(f"gRPC error calling query-service GetTrades: {e.details()}")
+        raise HTTPException(status_code=503, detail="Query service unavailable")

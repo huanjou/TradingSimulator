@@ -302,6 +302,7 @@ services:
       - "8001:8000"
     environment:
       - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-replica:5432/ledger_db
+      - POSTGRES_PRIMARY_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
       - REDIS_URL=redis://redis:6379/0
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -344,7 +345,8 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_MARKET_DATA_TOPIC=market_data
-      - BINANCE_WS_URL=wss://stream.binance.com:9443/ws/btcusdt@bookTicker
+      - MARKET_PROVIDER=binance
+      - MARKET_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
       - ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:

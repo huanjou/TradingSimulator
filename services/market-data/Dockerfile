@@ -1,40 +1,47 @@
-FROM python:3.11-slim as base
+FROM python:3.11-slim as python-base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
     POETRY_VERSION=2.1.1 \
     POETRY_HOME="/opt/poetry" \
-    POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_NO_INTERACTION=1
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    POETRY_NO_INTERACTION=1 \
+    PYSETUP_PATH="/opt/pysetup" \
+    VENV_PATH="/opt/pysetup/.venv"
 
-ENV PATH="$POETRY_HOME/bin:$PATH"
+ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
 
-FROM base as builder
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+# Builder
+FROM python-base as builder-base
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+        curl \
+        build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install "poetry==$POETRY_VERSION"
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
-WORKDIR /app
+WORKDIR $PYSETUP_PATH
 COPY pyproject.toml poetry.lock* ./
 RUN poetry lock && poetry install --no-root
 
-FROM base as development
-RUN pip install "poetry==$POETRY_VERSION"
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Development
+FROM python-base as development
 WORKDIR /app
-COPY pyproject.toml poetry.lock* ./
-RUN poetry lock && poetry install --no-root
+COPY --from=builder-base $POETRY_HOME $POETRY_HOME
+COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
+
 COPY . .
+
 CMD ["python", "-m", "app.main"]
 
-FROM base as production
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Production
+FROM python-base as production
 WORKDIR /app
+COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 COPY . .
+
 CMD ["python", "-m", "app.main"]

@@ -64,8 +64,7 @@ class MatchingService:
                     logger.info(
                         "trade_published",
                         trade_id=str(trade.id),
-                        maker_order_id=str(trade.maker_order_id),
-                        taker_order_id=str(trade.taker_order_id),
+                        order_id=str(trade.order_id),
                     )
 
                 for update in updates:
@@ -120,8 +119,7 @@ class MatchingService:
                     logger.info(
                         "trade_published_from_md",
                         trade_id=str(trade.id),
-                        maker_order_id=str(trade.maker_order_id),
-                        taker_order_id=str(trade.taker_order_id),
+                        order_id=str(trade.order_id),
                     )
 
                 for update in updates:

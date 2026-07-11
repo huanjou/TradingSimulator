@@ -19,7 +19,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x0corders.proto\x12\x06orders"#\n\x0fGetOrderRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t"\xb7\x01\n\rOrderResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x0e\n\x06symbol\x18\x03 \x01(\t\x12\x0c\n\x04side\x18\x04 \x01(\t\x12\x12\n\norder_type\x18\x05 \x01(\t\x12\x10\n\x08quantity\x18\x06 \x01(\x01\x12\r\n\x05price\x18\x07 \x01(\x01\x12\x0e\n\x06status\x18\x08 \x01(\t\x12\x12\n\ncreated_at\x18\t \x01(\t\x12\x12\n\nupdated_at\x18\n \x01(\t2O\n\x11OrderQueryService\x12:\n\x08GetOrder\x12\x17.orders.GetOrderRequest\x1a\x15.orders.OrderResponseb\x06proto3'
+    b'\n\x0corders.proto\x12\x06orders"#\n\x0fGetOrderRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t"\xb7\x01\n\rOrderResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x0e\n\x06symbol\x18\x03 \x01(\t\x12\x0c\n\x04side\x18\x04 \x01(\t\x12\x12\n\norder_type\x18\x05 \x01(\t\x12\x10\n\x08quantity\x18\x06 \x01(\x01\x12\r\n\x05price\x18\x07 \x01(\x01\x12\x0e\n\x06status\x18\x08 \x01(\t\x12\x12\n\ncreated_at\x18\t \x01(\t\x12\x12\n\nupdated_at\x18\n \x01(\t"i\n\x05Trade\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08order_id\x18\x02 \x01(\t\x12\x0e\n\x06symbol\x18\x03 \x01(\t\x12\r\n\x05price\x18\x04 \x01(\x01\x12\x10\n\x08quantity\x18\x05 \x01(\x01\x12\x11\n\ttimestamp\x18\x06 \x01(\x01"$\n\x10GetTradesRequest\x12\x10\n\x08order_id\x18\x01 \x01(\t"2\n\x11GetTradesResponse\x12\x1d\n\x06trades\x18\x01 \x03(\x0b\x32\r.orders.Trade2\x91\x01\n\x11OrderQueryService\x12:\n\x08GetOrder\x12\x17.orders.GetOrderRequest\x1a\x15.orders.OrderResponse\x12@\n\tGetTrades\x12\x18.orders.GetTradesRequest\x1a\x19.orders.GetTradesResponseb\x06proto3'
 )
 
 _globals = globals()
@@ -31,6 +31,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
     _globals["_GETORDERREQUEST"]._serialized_end = 59
     _globals["_ORDERRESPONSE"]._serialized_start = 62
     _globals["_ORDERRESPONSE"]._serialized_end = 245
-    _globals["_ORDERQUERYSERVICE"]._serialized_start = 247
-    _globals["_ORDERQUERYSERVICE"]._serialized_end = 326
+    _globals["_TRADE"]._serialized_start = 247
+    _globals["_TRADE"]._serialized_end = 352
+    _globals["_GETTRADESREQUEST"]._serialized_start = 354
+    _globals["_GETTRADESREQUEST"]._serialized_end = 390
+    _globals["_GETTRADESRESPONSE"]._serialized_start = 392
+    _globals["_GETTRADESRESPONSE"]._serialized_end = 442
+    _globals["_ORDERQUERYSERVICE"]._serialized_start = 445
+    _globals["_ORDERQUERYSERVICE"]._serialized_end = 590
 # @@protoc_insertion_point(module_scope)

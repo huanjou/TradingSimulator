@@ -4,6 +4,8 @@ from opentelemetry import metrics
 
 from app.db.session import AsyncSessionLocal
 from app.repositories.order import order_repo
+from app.repositories.symbol import symbol_repo
+from app.repositories.trade import trade_repo
 from app.repositories.user import user_repo
 
 logger = structlog.get_logger(__name__)
@@ -28,6 +30,10 @@ async def process_orders(messages, topic: str = "orders"):
             order_inserts = {}
             user_inserts = {}
             order_updates = {}
+            trade_inserts = {}
+            system_events = []
+
+            import uuid
 
             for msg in messages:
                 try:
@@ -45,9 +51,18 @@ async def process_orders(messages, topic: str = "orders"):
                     )
                     continue
 
+                def is_valid_uuid(val):
+                    if not val or val == "SYSTEM":
+                        return False
+                    try:
+                        uuid.UUID(str(val))
+                        return True
+                    except ValueError:
+                        return False
+
                 if topic == "orders":
                     user_id = data.get("user_id")
-                    if user_id:
+                    if user_id and is_valid_uuid(user_id):
                         user_inserts[user_id] = {
                             "id": user_id,
                             "email": f"user_{user_id}@test.com",
@@ -55,7 +70,11 @@ async def process_orders(messages, topic: str = "orders"):
                         }
 
                     order_id = data.get("id")
-                    if order_id:
+                    if (
+                        order_id
+                        and is_valid_uuid(order_id)
+                        and is_valid_uuid(data.get("user_id"))
+                    ):
                         order_inserts[order_id] = {
                             "id": order_id,
                             "user_id": data.get("user_id"),
@@ -67,6 +86,8 @@ async def process_orders(messages, topic: str = "orders"):
                             "price": float(data.get("price") or 0.0),
                             "status": data.get("status", "PENDING"),
                         }
+                    else:
+                        logger.warning("ignored_order_invalid_uuids", data=data)
 
                 elif topic == "order_updates":
                     order_id = data.get("order_id") or data.get("id")
@@ -76,12 +97,37 @@ async def process_orders(messages, topic: str = "orders"):
                     except (ValueError, TypeError):
                         filled_quantity = 0.0
 
-                    if order_id and status:
+                    if order_id and status and is_valid_uuid(order_id):
                         order_updates[order_id] = {
                             "id": order_id,
                             "status": status,
                             "filled_quantity": filled_quantity,
                         }
+                    else:
+                        logger.warning("ignored_order_update_invalid_data", data=data)
+
+                elif topic == "trades":
+                    trade_id = data.get("trade_id") or data.get("id")
+                    order_id = data.get("order_id")
+                    if (
+                        trade_id
+                        and order_id
+                        and is_valid_uuid(trade_id)
+                        and is_valid_uuid(order_id)
+                    ):
+                        trade_inserts[trade_id] = {
+                            "id": trade_id,
+                            "order_id": order_id,
+                            "symbol": data.get("symbol"),
+                            "price": float(data.get("price") or 0.0),
+                            "quantity": float(data.get("quantity") or 0.0),
+                            "timestamp": float(data.get("timestamp") or 0.0),
+                        }
+                    else:
+                        logger.warning("ignored_trade_invalid_data", data=data)
+
+                elif topic == "system_events":
+                    system_events.append(data)
 
             user_inserts_list = list(user_inserts.values())
             order_inserts_list = list(order_inserts.values())
@@ -121,6 +167,18 @@ async def process_orders(messages, topic: str = "orders"):
                                 error=str(inner_e),
                             )
                             await session.rollback()
+
+            trade_inserts_list = list(trade_inserts.values())
+            if trade_inserts_list:
+                await trade_repo.upsert_bulk(session, trade_inserts_list)
+                ledger_writes_counter.add(len(trade_inserts), {"type": "trade_insert"})
+
+            for event in system_events:
+                if event.get("type") == "SYMBOL_CREATED":
+                    symbol_name = event.get("symbol")
+                    if symbol_name:
+                        await symbol_repo.upsert(session, symbol_name)
+                        logger.info("symbol_created_in_db", symbol=symbol_name)
 
             await session.commit()
         except Exception as e:

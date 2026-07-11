@@ -54,6 +54,42 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
             context.set_details(str(e))
             return orders_pb2.OrderResponse()
 
+    async def GetTrades(
+        self, request: orders_pb2.GetTradesRequest, context: grpc.aio.ServicerContext
+    ) -> orders_pb2.GetTradesResponse:
+        order_id = request.order_id
+
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            request_id=str(uuid.uuid4()), order_id=order_id, grpc_method="GetTrades"
+        )
+        logger.info("grpc_get_trades_request_received")
+
+        try:
+            from app.repositories.trade import trade_repo
+
+            async with AsyncSessionLocal() as db_session:
+                trades = await trade_repo.get_by_order_id(db_session, order_id)
+                logger.info("trades_fetched", count=len(trades))
+                return orders_pb2.GetTradesResponse(
+                    trades=[
+                        orders_pb2.Trade(
+                            id=str(t.id),
+                            order_id=str(t.order_id),
+                            symbol=t.symbol,
+                            price=t.price,
+                            quantity=t.quantity,
+                            timestamp=t.timestamp,
+                        )
+                        for t in trades
+                    ]
+                )
+        except Exception as e:
+            logger.error("grpc_get_trades_failed", error=str(e), exc_info=True)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return orders_pb2.GetTradesResponse()
+
 
 async def serve_grpc():
     server = grpc.aio.server()

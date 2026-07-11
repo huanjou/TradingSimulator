@@ -41,7 +41,7 @@ def test_process_market_order_with_price(engine):
     assert len(trades) == 1
     assert trades[0].price == Decimal("50010")  # BUY at ASK
     assert trades[0].quantity == Decimal("1.5")
-    assert trades[0].maker_order_id == "SYSTEM"
+    assert trades[0].order_id == "order2"
 
     assert len(updates) == 1
     assert updates[0].status == OrderStatus.FILLED
@@ -110,5 +110,5 @@ def test_process_market_data_fills_pending(engine):
 
     assert len(trades) == 1
     assert trades[0].price == Decimal("50000")
-    assert trades[0].taker_order_id == str(order.id)
+    assert trades[0].order_id == str(order.id)
     assert len(engine.pending_orders["BTCUSDT"]) == 0

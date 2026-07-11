@@ -31,3 +31,8 @@ async def get_order_by_id(db: AsyncSession, order_id: str) -> OrderEntity | None
     order_entity = await repo.get_by_id(order_id)
 
     return order_entity
+
+
+async def get_pending_orders(db: AsyncSession) -> list[OrderEntity]:
+    repo = OrderRepository(db)
+    return await repo.get_pending_orders()

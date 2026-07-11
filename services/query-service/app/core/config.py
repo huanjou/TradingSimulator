@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     # Database
     POSTGRES_URL: PostgresDsn
+    POSTGRES_PRIMARY_URL: PostgresDsn | None = None
 
     # Message Broker
     KAFKA_BROKER: str = "kafka:9092"

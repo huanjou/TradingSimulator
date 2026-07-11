@@ -13,11 +13,35 @@ setup_opentelemetry()
 logger = structlog.get_logger(__name__)
 
 
+async def fetch_pending_orders(engine: MatchingEngine):
+    import httpx
+    from app.core.config import settings
+    from app.domain.order import Order
+
+    url = f"{settings.QUERY_SERVICE_URL.rstrip('/')}/api/v1/orders/pending"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            response.raise_for_status()
+            orders_data = response.json()
+
+            count = 0
+            for data in orders_data:
+                order = Order.model_validate(data)
+                if order.symbol not in engine.pending_orders:
+                    engine.pending_orders[order.symbol] = []
+                engine.pending_orders[order.symbol].append(order)
+                count += 1
+            logger.info("recovered_pending_orders_from_db", count=count)
+    except Exception as e:
+        logger.error("failed_to_recover_pending_orders", error=str(e))
+
+
 async def main():
     engine = MatchingEngine()
 
-    # Instantiate the Kafka app first but don't start it yet
-    # We need it to pass to the matching service
+    # Recover state
+    await fetch_pending_orders(engine)
     # However, in python, we can just instantiate it with None and set it,
     # or instantiate KafkaApp with a forward reference.
     # Actually, KafkaApp expects a message_handler in its init.
