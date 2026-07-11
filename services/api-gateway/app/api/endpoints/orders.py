@@ -126,3 +126,39 @@ async def get_order_trades(order_id: str) -> Any:
     except grpc.aio.AioRpcError as e:
         logger.error(f"gRPC error calling query-service GetTrades: {e.details()}")
         raise HTTPException(status_code=503, detail="Query service unavailable")
+
+
+@router.get(
+    "/user/{user_id}",
+    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
+)
+async def get_orders_by_user(user_id: str, limit: int = 50, offset: int = 0) -> Any:
+    """
+    Get orders for a specific user by calling the internal query-service via gRPC.
+    """
+    try:
+        async with grpc.aio.insecure_channel(QUERY_SERVICE_GRPC_URL) as channel:
+            stub = orders_pb2_grpc.OrderQueryServiceStub(channel)
+            request = orders_pb2.GetOrdersByUserRequest(
+                user_id=user_id, limit=limit, offset=offset
+            )
+            response = await stub.GetOrdersByUser(request)
+
+            return [
+                {
+                    "id": order.id,
+                    "user_id": order.user_id,
+                    "symbol": order.symbol,
+                    "side": order.side,
+                    "order_type": order.order_type,
+                    "quantity": order.quantity,
+                    "price": order.price,
+                    "status": order.status,
+                    "created_at": order.created_at,
+                    "updated_at": order.updated_at,
+                }
+                for order in response.orders
+            ]
+    except grpc.aio.AioRpcError as e:
+        logger.error(f"gRPC error calling query-service GetOrdersByUser: {e.details()}")
+        raise HTTPException(status_code=503, detail="Query service unavailable")

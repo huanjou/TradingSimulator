@@ -357,6 +357,24 @@ services:
     networks:
       - exchange_net
 
+  stream-service:
+    build:
+      context: ../services/stream-service
+      dockerfile: Dockerfile
+    container_name: exchange_stream_service
+    ports:
+      - "8002:8000"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - MARKET_DATA_TOPIC=market_data
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/stream-service:/app
+    networks:
+      - exchange_net
+
   frontend:
     build:
       context: ../frontend

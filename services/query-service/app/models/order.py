@@ -22,7 +22,8 @@ class OrderTypeChoice(str, enum.Enum):
 class OrderStatusChoice(str, enum.Enum):
     PENDING = "PENDING"
     CANCELED = "CANCELED"
-    EXECUTED = "EXECUTED"
+    FILLED = "FILLED"
+    PARTIALLY_FILLED = "PARTIALLY_FILLED"
     REJECTED = "REJECTED"
 
 

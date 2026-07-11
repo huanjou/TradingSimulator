@@ -1,0 +1,28 @@
+[tool.poetry]
+package-mode = false
+name = "stream-service"
+version = "0.1.0"
+description = "Market Data Stream Service"
+authors = ["Huan Jou <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.138.2"
+uvicorn = {extras = ["standard"], version = "^0.23.2"}
+gunicorn = "^21.2.0"
+aiokafka = "^0.10.0"
+pydantic-settings = "^2.14.2"
+structlog = "^24.1.0"
+sse-starlette = "^2.2.1"
+orjson = "^3.11.9"
+lz4 = "^4.4.5"
+redis = "^8.0.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.2"
+httpx = "^0.25.0"
+pytest-asyncio = "^0.21.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

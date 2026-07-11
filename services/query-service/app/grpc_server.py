@@ -90,6 +90,56 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
             context.set_details(str(e))
             return orders_pb2.GetTradesResponse()
 
+    async def GetOrdersByUser(
+        self,
+        request: orders_pb2.GetOrdersByUserRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> orders_pb2.GetOrdersByUserResponse:
+        user_id = request.user_id
+        limit = request.limit if request.limit > 0 else 50
+        offset = request.offset if request.offset >= 0 else 0
+
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            request_id=str(uuid.uuid4()), user_id=user_id, grpc_method="GetOrdersByUser"
+        )
+        logger.info("grpc_get_orders_by_user_request_received")
+
+        try:
+            from app.repositories.order import OrderRepository
+
+            async with AsyncSessionLocal() as db_session:
+                repo = OrderRepository(db_session)
+                orders = await repo.get_by_user_id(user_id, limit, offset)
+
+                logger.info("orders_fetched", count=len(orders))
+                return orders_pb2.GetOrdersByUserResponse(
+                    orders=[
+                        orders_pb2.OrderResponse(
+                            id=str(o.id),
+                            user_id=str(o.user_id),
+                            symbol=o.symbol,
+                            side=o.side,
+                            order_type=o.order_type,
+                            quantity=o.quantity,
+                            price=o.price,
+                            status=o.status,
+                            created_at=o.created_at.isoformat()
+                            if getattr(o, "created_at", None)
+                            else "",
+                            updated_at=o.updated_at.isoformat()
+                            if getattr(o, "updated_at", None)
+                            else "",
+                        )
+                        for o in orders
+                    ]
+                )
+        except Exception as e:
+            logger.error("grpc_get_orders_by_user_failed", error=str(e), exc_info=True)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return orders_pb2.GetOrdersByUserResponse()
+
 
 async def serve_grpc():
     server = grpc.aio.server()
