@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Antigravity Exchange',
+  title: 'Scalpy',
   description: 'Trading Simulator Interface',
 };
 
