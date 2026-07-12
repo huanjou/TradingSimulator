@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import api from '@/lib/axios';
+import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { TrendingUp } from 'lucide-react';
 
@@ -7,30 +6,25 @@ export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuthStore();
+  const { login, register, error, clearError } = useAuthStore();
+
+  useEffect(() => {
+    clearError();
+  }, [isLogin, clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
       if (isLogin) {
-        const res = await api.post('/api/v1/auth/login', { email, password });
-        // After login, fetch user profile
-        const meRes = await api.get('/api/v1/users/me');
-        setUser(meRes.data);
+        await login({ email, password });
       } else {
-        await api.post('/api/v1/auth/register', { email, password });
-        // Automatically login after register
-        const res = await api.post('/api/v1/auth/login', { email, password });
-        const meRes = await api.get('/api/v1/users/me');
-        setUser(meRes.data);
+        await register({ email, password });
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Authentication failed');
+      // Error is handled in the store, but we catch it to prevent unhandled promise rejections
     } finally {
       setLoading(false);
     }

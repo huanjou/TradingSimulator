@@ -10,11 +10,7 @@ interface OrderEntryProps {
   onOrderSubmitted?: () => void;
 }
 
-export default function OrderEntry({
-  symbol,
-  currentPrice,
-  onOrderSubmitted,
-}: OrderEntryProps) {
+export default function OrderEntry({ symbol, currentPrice, onOrderSubmitted }: OrderEntryProps) {
   const { user } = useAuthStore();
   const [quantity, setQuantity] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -25,11 +21,16 @@ export default function OrderEntry({
       setError('Invalid quantity');
       return;
     }
+    if (!user?.id) {
+      setError('User not authenticated');
+      return;
+    }
     setError('');
     setLoading(true);
 
     try {
       await api.post('/api/v1/orders/', {
+        user_id: user.id,
         symbol,
         side,
         order_type: 'MARKET',
@@ -38,7 +39,15 @@ export default function OrderEntry({
       setQuantity('');
       if (onOrderSubmitted) onOrderSubmitted();
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to submit order');
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        // FastAPI validation error (list of objects)
+        setError(detail.map((e) => `${e.loc.join('.')}: ${e.msg}`).join(', '));
+      } else if (typeof detail === 'string') {
+        setError(detail);
+      } else {
+        setError('Failed to submit order');
+      }
     } finally {
       setLoading(false);
     }

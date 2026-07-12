@@ -14,7 +14,7 @@ class SymbolResponse(BaseModel):
     is_active: bool
 
 
-@router.get("/", response_model=list[SymbolResponse])
+@router.get("", response_model=list[SymbolResponse])
 async def get_symbols(
     q: str | None = None,
     limit: int = Query(20, ge=1, le=100),

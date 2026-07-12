@@ -14,30 +14,12 @@ import api from '@/lib/axios';
 const TVChart = dynamic(() => import('@/components/TVChart'), { ssr: false });
 
 export default function Dashboard() {
-  const { user, isAuthenticated, setUser, logout } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [symbol, setSymbol] = useState('BTC/USD');
   const [currentTrade, setCurrentTrade] = useState<{ price: number; timestamp: string } | null>(
     null,
   );
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isInitializing, setIsInitializing] = useState(true);
-
-  // Check auth status on mount
-  React.useEffect(() => {
-    api
-      .get('/api/v1/users/me')
-      .then((res) => setUser(res.data))
-      .catch(() => setUser(null))
-      .finally(() => setIsInitializing(false));
-  }, [setUser]);
-
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-emerald-500 animate-pulse">Loading...</div>
-      </div>
-    );
-  }
 
   if (!isAuthenticated) {
     return <AuthScreen />;

@@ -32,7 +32,7 @@ export default function Navbar({
   useEffect(() => {
     if (searchQuery.trim().length > 0) {
       api
-        .get(`/api/v1/symbols/?q=${searchQuery}&limit=5`)
+        .get(`/api/v1/symbols?q=${searchQuery}&limit=5`)
         .then((res) => {
           setSearchResults(res.data);
           setIsSearchOpen(true);
@@ -120,8 +120,7 @@ export default function Navbar({
 
         <button
           onClick={async () => {
-            await api.post('/api/v1/auth/logout');
-            logout();
+            await logout();
           }}
           className="p-2 text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-md transition-colors"
           title="Sign Out"

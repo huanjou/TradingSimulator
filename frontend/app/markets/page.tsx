@@ -30,7 +30,7 @@ export default function MarketsPage() {
 
     setLoading(true);
     try {
-      const res = await api.get(`/api/v1/symbols/?q=${query}&limit=${limit}&offset=${offset}`);
+      const res = await api.get(`/api/v1/symbols?q=${query}&limit=${limit}&offset=${offset}`);
       const newSymbols = res.data;
 
       if (newSymbols.length < limit) {
