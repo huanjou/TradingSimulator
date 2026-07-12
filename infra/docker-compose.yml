@@ -214,6 +214,9 @@ services:
     depends_on:
       - frontend
       - api-gateway
+      - user-service
+      - query-service
+      - stream-service
     networks:
       - exchange_net
 
