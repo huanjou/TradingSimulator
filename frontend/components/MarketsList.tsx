@@ -26,8 +26,6 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
   const limit = 30;
   const router = useRouter();
 
-  const visibleElementsRef = useRef<Set<string>>(new Set());
-
   const fetchSymbols = async (offset: number, query: string, append: boolean) => {
     if (loading || (!hasMore && offset !== 0)) return;
 
@@ -78,53 +76,18 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
     [loading, hasMore, symbols.length, searchQuery],
   );
 
-  const visibilityObserver = useRef<IntersectionObserver | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    visibilityObserver.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const symbol = entry.target.getAttribute('data-symbol');
-          if (!symbol) return;
-
-          if (entry.isIntersecting) {
-            visibleElementsRef.current.add(symbol);
-          } else {
-            visibleElementsRef.current.delete(symbol);
-          }
-        });
-      },
-      { threshold: 0.1 },
-    );
-
-    return () => {
-      if (visibilityObserver.current) visibilityObserver.current.disconnect();
-    };
-  }, []);
-
-  const observeVisibility = useCallback((node: HTMLTableRowElement | null, symbol: string) => {
-    if (node && visibilityObserver.current) {
-      node.setAttribute('data-symbol', symbol);
-      visibilityObserver.current.observe(node);
-    }
-  }, []);
-
   useEffect(() => {
     const eventSource = new EventSource('/api/v1/stream');
 
     eventSource.addEventListener('price', (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.symbol && data.price) {
-          // Only update price if the symbol is actively being viewed
-          if (visibleElementsRef.current.has(data.symbol)) {
-            setPrices((prev) => ({
-              ...prev,
-              [data.symbol]: parseFloat(data.price),
-            }));
-          }
+        if (data.symbol && data.bid_price !== undefined) {
+          const tradePrice = (data.bid_price + data.ask_price) / 2;
+          setPrices((prev) => ({
+            ...prev,
+            [data.symbol]: parseFloat(tradePrice.toFixed(2)),
+          }));
         }
       } catch (err) {
         console.error('Failed to parse price data', err);
@@ -179,7 +142,6 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
                     key={symbol.name}
                     ref={(node) => {
                       if (isLast && node) lastElementRef(node);
-                      observeVisibility(node, symbol.name);
                     }}
                     className="hover:bg-zinc-800/30 transition-colors group"
                   >

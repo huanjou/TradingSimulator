@@ -30,14 +30,22 @@ export default function TradesFeed({ symbol, onTradeUpdate }: TradesFeedProps) {
 
     sse.addEventListener('price', (e) => {
       try {
-        const data: TradeEvent = JSON.parse(e.data);
-        if (data.event_type === 'trade') {
+        const data = JSON.parse(e.data);
+        if (data.symbol && data.bid_price !== undefined) {
+          const tradePrice = (data.bid_price + data.ask_price) / 2;
+          const tradeData = {
+            event_type: 'trade',
+            symbol: data.symbol,
+            price: tradePrice,
+            timestamp: data.timestamp || new Date().toISOString(),
+          };
+
           setTrades((prev) => {
-            const updated = [data, ...prev].slice(0, 50); // Keep last 50
+            const updated = [tradeData, ...prev].slice(0, 50); // Keep last 50
             return updated;
           });
           if (onTradeUpdate) {
-            onTradeUpdate({ price: data.price, timestamp: data.timestamp });
+            onTradeUpdate({ price: tradePrice, timestamp: tradeData.timestamp });
           }
         }
       } catch (err) {
