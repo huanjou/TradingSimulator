@@ -5,25 +5,18 @@ import dynamic from 'next/dynamic';
 import OrderEntry from '@/components/OrderEntry';
 import OrderHistory from '@/components/OrderHistory';
 import TradesFeed from '@/components/TradesFeed';
-import AuthScreen from '@/components/AuthScreen';
 import Navbar from '@/components/Navbar';
-import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/lib/axios';
 
 // Disable SSR for TradingView chart as it requires window object
 const TVChart = dynamic(() => import('@/components/TVChart'), { ssr: false });
 
 export default function Dashboard() {
-  const { user, isAuthenticated } = useAuthStore();
   const [symbol, setSymbol] = useState('BTC/USD');
   const [currentTrade, setCurrentTrade] = useState<{ price: number; timestamp: string } | null>(
     null,
   );
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  if (!isAuthenticated) {
-    return <AuthScreen />;
-  }
 
   // TradingView uses different symbol format e.g., BINANCE:BTCUSD
   const tvSymbol = `BINANCE:${symbol.replace('/', '')}`;

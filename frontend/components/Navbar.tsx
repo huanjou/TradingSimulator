@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TrendingUp, LogOut, Search } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/lib/axios';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function Navbar({
   currentSymbol,
@@ -17,6 +17,7 @@ export default function Navbar({
   const [searchResults, setSearchResults] = useState<{ name: string; is_active: boolean }[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function Navbar({
       onSymbolSelect(symbol);
     }
     // Navigate to dashboard if not on it
-    if (window.location.pathname !== '/') {
+    if (pathname !== '/') {
       router.push(`/?symbol=${symbol}`);
     }
   };
@@ -71,9 +72,7 @@ export default function Navbar({
           <button
             onClick={() => router.push('/')}
             className={`text-sm font-medium transition-colors ${
-              window.location.pathname === '/'
-                ? 'text-emerald-500'
-                : 'text-zinc-400 hover:text-zinc-100'
+              pathname === '/' ? 'text-emerald-500' : 'text-zinc-400 hover:text-zinc-100'
             }`}
           >
             Trade
@@ -81,9 +80,7 @@ export default function Navbar({
           <button
             onClick={() => router.push('/markets')}
             className={`text-sm font-medium transition-colors ${
-              window.location.pathname === '/markets'
-                ? 'text-emerald-500'
-                : 'text-zinc-400 hover:text-zinc-100'
+              pathname === '/markets' ? 'text-emerald-500' : 'text-zinc-400 hover:text-zinc-100'
             }`}
           >
             Markets

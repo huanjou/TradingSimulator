@@ -1,21 +1,32 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useAuthStore } from '../store/useAuthStore';
+import { useEffect, useRef } from 'react';
+import { useAuthStore, User } from '../store/useAuthStore';
+import AuthScreen from './AuthScreen';
 
-export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isInitializing, checkAuth } = useAuthStore();
+export default function AuthProvider({
+  children,
+  initialUser,
+}: {
+  children: React.ReactNode;
+  initialUser: User | null;
+}) {
+  const initialized = useRef(false);
+  const { isAuthenticated } = useAuthStore();
 
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+  if (!initialized.current) {
+    useAuthStore.setState({
+      user: initialUser,
+      isAuthenticated: !!initialUser,
+      isInitializing: false,
+    });
+    initialized.current = true;
+  }
 
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+  // We no longer render a spinner.
+  // If not authenticated, we immediately show the AuthScreen.
+  if (!isAuthenticated && !initialUser) {
+    return <AuthScreen />;
   }
 
   return <>{children}</>;
