@@ -36,9 +36,10 @@ class KafkaProducerClient:
         """Publish an event to a specific Kafka topic."""
         if not self.producer:
             raise RuntimeError("Kafka Producer is not initialized. Call start() first.")
-        
+
         # Inject current trace context into headers
         from opentelemetry import propagate
+
         headers_dict = {}
         propagate.inject(headers_dict)
         kafka_headers = [(k, v.encode("utf-8")) for k, v in headers_dict.items()]

@@ -34,14 +34,19 @@ async def consume():
             for tp, messages in result.items():
                 if messages:
                     from opentelemetry import propagate, trace
+
                     tracer = trace.get_tracer(__name__)
-                    
+
                     links = []
                     for msg in messages:
                         if msg.headers:
-                            headers_dict = {k: v.decode("utf-8") for k, v in msg.headers}
+                            headers_dict = {
+                                k: v.decode("utf-8") for k, v in msg.headers
+                            }
                             ctx = propagate.extract(headers_dict)
-                            span_context = trace.get_current_span(ctx).get_span_context()
+                            span_context = trace.get_current_span(
+                                ctx
+                            ).get_span_context()
                             if span_context.is_valid:
                                 links.append(trace.Link(span_context))
 
@@ -52,11 +57,11 @@ async def consume():
                         partition=tp.partition,
                         messages_count=len(messages),
                     )
-                    
+
                     with tracer.start_as_current_span(
                         f"process_batch {tp.topic}",
                         links=links,
-                        kind=trace.SpanKind.CONSUMER
+                        kind=trace.SpanKind.CONSUMER,
                     ):
                         logger.info("processing_batch")
                         await process_orders(messages, topic=tp.topic)

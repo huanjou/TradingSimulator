@@ -5,10 +5,10 @@ import { uuidv4 } from "https://jslib.k6.io/k6-utils/1.4.0/index.js";
 export const options = {
   scenarios: {
     constant_request_rate: {
-      executor: 'constant-arrival-rate',
+      executor: "constant-arrival-rate",
       rate: 30, // 30 requests per second
-      timeUnit: '1s', // 30 requests per second
-      duration: '5s',
+      timeUnit: "1s", // 30 requests per second
+      duration: "5s",
       preAllocatedVUs: 10,
       maxVUs: 50,
     },
@@ -16,11 +16,11 @@ export const options = {
   thresholds: {
     // We send 30/s for 5 seconds (150 requests total).
     // The sliding window logs ALL attempts (even rejected ones) in Redis.
-    // So the first 10 requests succeed, and the remaining 140 fail with 429 
+    // So the first 10 requests succeed, and the remaining 140 fail with 429
     // because the 1-second window is constantly kept full (>10) by the hammering.
     // Failure rate should be exactly 140/150 = 93.33%.
-    'http_req_failed': ['rate>0.90'], 
-    'checks': ['rate>0.95']
+    http_req_failed: ["rate>0.90"],
+    checks: ["rate>0.95"],
   },
 };
 

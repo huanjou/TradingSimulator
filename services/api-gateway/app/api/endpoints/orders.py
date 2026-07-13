@@ -36,6 +36,7 @@ async def ip_identifier(request: Request):
 
 from app.api.deps import get_current_user_id
 
+
 @router.post(
     "/",
     response_model=OrderResponse,
@@ -43,8 +44,7 @@ from app.api.deps import get_current_user_id
     dependencies=[Depends(RateLimiter(times=10, seconds=1))],
 )
 async def create_order(
-    order_in: OrderCreate,
-    current_user_id: str = Depends(get_current_user_id)
+    order_in: OrderCreate, current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     """
     Create a new trading order.
@@ -72,8 +72,7 @@ QUERY_SERVICE_GRPC_URL = os.getenv("QUERY_SERVICE_GRPC_URL", "query-service:5005
     dependencies=[Depends(RateLimiter(times=50, seconds=1))],
 )
 async def get_order(
-    order_id: str,
-    current_user_id: str = Depends(get_current_user_id)
+    order_id: str, current_user_id: str = Depends(get_current_user_id)
 ) -> Any:
     """
     Get order by ID by calling the internal query-service via gRPC.
@@ -87,9 +86,11 @@ async def get_order(
             # Since gRPC returns default values for missing strings, we check if ID is empty
             if not response.id:
                 raise HTTPException(status_code=404, detail="Order not found")
-                
+
             if response.user_id != current_user_id:
-                raise HTTPException(status_code=403, detail="Not authorized to access this order")
+                raise HTTPException(
+                    status_code=403, detail="Not authorized to access this order"
+                )
 
             return {
                 "id": response.id,
@@ -148,14 +149,16 @@ async def get_orders_by_user(
     user_id: str,
     limit: int = 50,
     offset: int = 0,
-    current_user_id: str = Depends(get_current_user_id)
+    current_user_id: str = Depends(get_current_user_id),
 ) -> Any:
     """
     Get orders for a specific user by calling the internal query-service via gRPC.
     """
     if user_id != "me" and user_id != current_user_id:
-        raise HTTPException(status_code=403, detail="Not authorized to access these orders")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access these orders"
+        )
+
     target_user_id = current_user_id if user_id == "me" else user_id
 
     try:

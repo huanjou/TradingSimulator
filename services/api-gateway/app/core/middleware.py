@@ -1,4 +1,5 @@
 import time
+
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,7 @@ def setup_middlewares(app: FastAPI):
     """
     Configures all application middlewares (CORS, Rate Limiting, etc.)
     """
+
     @app.middleware("http")
     async def logging_middleware(request: Request, call_next):
         start_time = time.time()
