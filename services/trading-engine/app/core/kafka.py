@@ -1,9 +1,11 @@
+import uuid
+from typing import Awaitable, Callable
+
 import orjson
 import structlog
-import uuid
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+
 from .config import settings
-from typing import Callable, Awaitable
 
 logger = structlog.get_logger(__name__)
 
@@ -44,7 +46,7 @@ class KafkaApp:
                 if not data:
                     continue
 
-                for tp, messages in data.items():
+                for _, messages in data.items():
                     await self._process_batch(messages)
         finally:
             await self.stop()

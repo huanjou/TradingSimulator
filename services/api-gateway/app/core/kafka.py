@@ -3,7 +3,6 @@ from typing import Any
 
 import orjson
 from aiokafka import AIOKafkaProducer
-
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -44,7 +43,8 @@ class KafkaProducerClient:
         propagate.inject(headers_dict)
         kafka_headers = [(k, v.encode("utf-8")) for k, v in headers_dict.items()]
 
-        # We await the send coroutine to add to the buffer (it returns a Future for delivery)
+        # We await the send coroutine to add to the buffer
+        # (it returns a Future for delivery)
         await self.producer.send(topic, value=value, key=key, headers=kafka_headers)
         logger.debug(f"Event published to topic {topic}")
 

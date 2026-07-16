@@ -1,13 +1,12 @@
-from fastapi import Depends, HTTPException, Request, status
-from jose import JWTError, jwt
-from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import settings
 from app.core.redis import get_redis
 from app.db.session import get_db
 from app.repositories.user import UserRepository
 from app.schemas.user import TokenPayload, UserResponse
+from fastapi import Depends, HTTPException, Request, status
+from jose import JWTError, jwt
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_current_user(

@@ -1,3 +1,6 @@
+import asyncio
+from unittest.mock import patch
+
 import pytest
 
 
@@ -56,7 +59,8 @@ async def test_create_market_order_success(client, user_factory):
 async def test_create_order_schema_validation(
     client, user_factory, invalid_payload_updates, expected_status
 ):
-    """Sad Path: Various payload schema validation failures (API Pydantic validation)."""
+    """Sad Path: Various payload schema validation failures
+    (API Pydantic validation)."""
     user = await user_factory()
     payload = {
         "user_id": str(user.id),
@@ -102,9 +106,6 @@ async def test_create_limit_order_without_price(client, user_factory):
     assert "Limit orders must have a specified price." in response.json()["detail"]
 
 
-from unittest.mock import patch
-
-
 @pytest.mark.asyncio
 async def test_create_order_publishes_to_kafka(client, user_factory):
     """Happy Path: Ensure Kafka send_event is called with correct data."""
@@ -143,12 +144,10 @@ async def test_create_order_publishes_to_kafka(client, user_factory):
         assert kafka_payload["status"] == "PENDING"
 
 
-import asyncio
-
-
 @pytest.mark.asyncio
 async def test_e2e_create_and_get_order(client, user_factory):
-    """E2E Flow: Create order -> Kafka -> Ledger Writer -> DB -> Query Service -> Gateway"""
+    """E2E Flow: Create order -> Kafka -> Ledger Writer -> DB -> Query Service
+    -> Gateway"""
     user = await user_factory()
     payload = {
         "user_id": str(user.id),
@@ -168,7 +167,7 @@ async def test_e2e_create_and_get_order(client, user_factory):
     # 2. Poll for order via GET (wait for ledger-writer to process Kafka msg)
     max_retries = 10
     found = False
-    for i in range(max_retries):
+    for _ in range(max_retries):
         await asyncio.sleep(0.5)
         get_response = await client.get(f"/api/v1/orders/{order_id}")
         if get_response.status_code == 200:

@@ -1,4 +1,5 @@
 import asyncio
+
 import orjson
 import structlog
 from aiokafka import AIOKafkaConsumer

@@ -1,11 +1,10 @@
 import uuid
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.session import get_db, get_primary_db
 from app.services.order_service import get_order_by_id, get_pending_orders
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 router = APIRouter()

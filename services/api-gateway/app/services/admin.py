@@ -1,6 +1,5 @@
 import structlog
 from aiokafka import AIOKafkaProducer
-
 from app.core.config import get_settings
 from app.domain.system_event import SystemEvent, SystemEventType
 

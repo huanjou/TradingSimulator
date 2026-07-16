@@ -1,7 +1,6 @@
+from app.core.logging import extract_otel_trace_id
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-
-from app.core.logging import extract_otel_trace_id
 
 
 def test_extract_otel_trace_id_without_span():

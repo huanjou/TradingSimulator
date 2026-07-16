@@ -1,8 +1,8 @@
-from typing import Dict, List, Tuple
 from decimal import Decimal
+from typing import Dict, List, Tuple
 
-from .order import Order, OrderSide, OrderType, OrderStatus
-from .events import TradeEvent, OrderUpdateEvent
+from .events import OrderUpdateEvent, TradeEvent
+from .order import Order, OrderSide, OrderStatus, OrderType
 
 
 class MarketPrice:

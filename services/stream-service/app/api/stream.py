@@ -1,6 +1,7 @@
 import asyncio
+
 import orjson
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Query, Request
 from sse_starlette.sse import EventSourceResponse
 
 from app.services.kafka_streamer import kafka_streamer

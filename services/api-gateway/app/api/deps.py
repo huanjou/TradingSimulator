@@ -1,14 +1,14 @@
+from app.core.config import get_settings
 from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
-
-from app.core.config import get_settings
 
 settings = get_settings()
 
 
 def get_current_user_id(request: Request) -> str:
     """
-    Extracts the user ID from the JWT token present in the Authorization header or HTTP-Only cookie.
+    Extracts the user ID from the JWT token present in the Authorization
+    header or HTTP-Only cookie.
     Validates CSRF token if the authentication was done via Cookie.
     """
     token: str | None = None
@@ -53,8 +53,8 @@ def get_current_user_id(request: Request) -> str:
                 detail="Could not validate credentials",
             )
         return user_id
-    except JWTError:
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-        )
+        ) from e

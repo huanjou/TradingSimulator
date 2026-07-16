@@ -1,8 +1,7 @@
 import logging
 
-from redis.asyncio import ConnectionPool, Redis
-
 from app.core.config import get_settings
+from redis.asyncio import ConnectionPool, Redis
 
 settings = get_settings()
 logger = logging.getLogger(__name__)

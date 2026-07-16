@@ -1,5 +1,6 @@
-import requests
 import time
+
+import requests
 
 API_URL = "http://localhost:8000/api/v1/orders"
 USER_ID = "11111111-1111-1111-1111-111111111111"

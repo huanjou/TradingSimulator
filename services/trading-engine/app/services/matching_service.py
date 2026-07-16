@@ -1,9 +1,9 @@
+from typing import Protocol
+
 import orjson
 import structlog
-from typing import Protocol
 from app.domain.engine import MatchingEngine
 from app.domain.order import Order
-
 from opentelemetry import metrics
 
 logger = structlog.get_logger(__name__)

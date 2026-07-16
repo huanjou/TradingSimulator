@@ -1,11 +1,11 @@
 import json
 
 import pytest
-from sqlalchemy import select
-
 from app.models.order import Order
 from app.models.user import User
 from app.services.processor import process_orders
+from sqlalchemy import select
+
 from tests.factories.models import OrderMessageFactory
 
 
@@ -54,7 +54,8 @@ async def test_process_orders_integration_success(db_session):
 @pytest.mark.asyncio
 async def test_process_orders_idempotency(db_session):
     """
-    Test that sending the same order twice does not result in duplicate DB entries or crash.
+    Test that sending the same order twice does not result in duplicate DB entries
+    or crash.
     """
     payload = OrderMessageFactory()
     test_order_id = payload["id"]

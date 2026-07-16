@@ -1,7 +1,6 @@
+from app.models.symbol import Symbol
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.symbol import Symbol
 
 
 class SymbolRepository:

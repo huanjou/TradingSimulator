@@ -1,8 +1,9 @@
 import asyncio
 import json
-import pytest
 import uuid
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+
+import pytest
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from app.core.config import settings
 
 
@@ -19,7 +20,7 @@ async def test_kafka_integration():
         settings.KAFKA_ORDER_UPDATES_TOPIC,
         bootstrap_servers=settings.KAFKA_BROKER,
         group_id=f"test-group-{uuid.uuid4()}",
-        auto_offset_reset="latest",  # We only care about messages produced during this test
+        auto_offset_reset="latest",  # We only care about messages produced during this test  # noqa: E501
     )
     await consumer.start()
 

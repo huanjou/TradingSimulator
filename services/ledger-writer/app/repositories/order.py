@@ -1,9 +1,8 @@
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.domain.order import OrderEntity
 from app.models.order import Order as DbOrder
 from app.repositories.base import BaseRepository
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class OrderRepository(BaseRepository[DbOrder]):

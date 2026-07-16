@@ -2,12 +2,11 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
-
 from app.api.router import api_router
 from app.core.logging import setup_logging
-from app.db.base import *
+from app.core.telemetry import setup_opentelemetry
 from app.grpc_server import serve_grpc
+from fastapi import FastAPI
 
 setup_logging()
 logger = structlog.get_logger(__name__)
@@ -25,8 +24,6 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
-
-from app.core.telemetry import setup_opentelemetry
 
 app = FastAPI(title="Query Service", version="0.1.0", lifespan=lifespan)
 setup_opentelemetry(app)

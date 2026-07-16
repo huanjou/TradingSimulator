@@ -1,5 +1,4 @@
 import factory
-
 from app.db.session import AsyncSessionLocal
 
 

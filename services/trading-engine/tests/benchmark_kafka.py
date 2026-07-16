@@ -1,8 +1,9 @@
 import asyncio
+import random
 import time
 import uuid
-import random
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from app.core.config import settings
 
 
@@ -57,7 +58,7 @@ async def run_benchmark():
     async def consume_updates():
         nonlocal updates_received
         async for msg in consumer:
-            update = msg.value
+            _ = msg.value
             # For every order, we expect at least 1 update (its final status)
             updates_received += 1
             if updates_received >= num_orders:

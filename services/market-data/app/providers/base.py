@@ -1,5 +1,6 @@
-from typing import AsyncIterable
 from abc import ABC, abstractmethod
+from typing import AsyncIterable
+
 from app.domain.models import MarketEvent
 
 

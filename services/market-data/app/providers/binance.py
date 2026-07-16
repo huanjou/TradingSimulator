@@ -4,7 +4,6 @@ from typing import AsyncIterable, List
 
 import structlog
 import websockets
-
 from app.domain.models import MarketEvent
 from app.providers.base import MarketDataProvider
 

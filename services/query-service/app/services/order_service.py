@@ -1,10 +1,9 @@
 import structlog
-from opentelemetry import metrics
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.domain.order import OrderEntity
 from app.repositories.order import OrderRepository
 from app.services.cache_service import get_cached_order
+from opentelemetry import metrics
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 meter = metrics.get_meter(__name__)

@@ -1,8 +1,10 @@
-from pydantic import BaseModel, Field
-from decimal import Decimal
-from .order import OrderStatus
 import time
 import uuid
+from decimal import Decimal
+
+from pydantic import BaseModel, Field
+
+from .order import OrderStatus
 
 
 class TradeEvent(BaseModel):

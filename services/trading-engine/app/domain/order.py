@@ -1,6 +1,7 @@
-from enum import Enum
-from pydantic import BaseModel, ConfigDict, Field
 from decimal import Decimal
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OrderSide(str, Enum):

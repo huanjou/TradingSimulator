@@ -1,7 +1,8 @@
-import pytest
 from decimal import Decimal
+
+import pytest
 from app.domain.engine import MatchingEngine
-from app.domain.order import Order, OrderSide, OrderType, OrderStatus
+from app.domain.order import Order, OrderSide, OrderStatus, OrderType
 
 
 @pytest.fixture

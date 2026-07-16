@@ -1,10 +1,10 @@
 import json
 
 from aiokafka import AIOKafkaProducer
+from app.core.config import get_settings
+from app.services.admin import AdminService
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-
-from app.core.config import get_settings
 
 router = APIRouter()
 settings = get_settings()
@@ -26,9 +26,6 @@ async def get_kafka_producer():
         await producer.stop()
 
 
-from app.services.admin import AdminService
-
-
 async def get_admin_service(producer: AIOKafkaProducer = Depends(get_kafka_producer)):
     return AdminService(producer)
 
@@ -45,4 +42,4 @@ async def create_symbol(
             "message": f"Symbol {request.symbol} creation event published",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

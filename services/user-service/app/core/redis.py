@@ -2,25 +2,29 @@ from collections.abc import AsyncGenerator
 
 from redis.asyncio import Redis, from_url
 
-from app.core.config import settings
 
-# Global redis connection pool
-_redis_client: Redis | None = None
+class RedisClient:
+    def __init__(self):
+        self.client: Redis | None = None
+
+    async def connect(self, url: str) -> None:
+        if self.client is None:
+            self.client = from_url(url, decode_responses=True)
+
+    async def disconnect(self) -> None:
+        if self.client is not None:
+            await self.client.aclose()
+            self.client = None
+
+    async def get_client(self) -> AsyncGenerator[Redis, None]:
+        if self.client is None:
+            raise RuntimeError("Redis is not initialized")
+        yield self.client
 
 
-async def init_redis():
-    global _redis_client
-    if _redis_client is None:
-        _redis_client = from_url(settings.REDIS_URL, decode_responses=True)
-
-
-async def close_redis():
-    global _redis_client
-    if _redis_client is not None:
-        await _redis_client.aclose()
+redis_client = RedisClient()
 
 
 async def get_redis() -> AsyncGenerator[Redis, None]:
-    if _redis_client is None:
-        await init_redis()
-    yield _redis_client
+    async for client in redis_client.get_client():
+        yield client

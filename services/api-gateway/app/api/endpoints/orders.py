@@ -1,11 +1,15 @@
 import logging
+import os
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
-from opentelemetry import metrics
-
+import grpc
+from app.api.deps import get_current_user_id
+from app.api.rate_limiter import RateLimiter
+from app.grpc_stubs import orders_pb2, orders_pb2_grpc
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.order import order_service
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from opentelemetry import metrics
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -15,10 +19,6 @@ orders_submitted_counter = meter.create_counter(
     "orders_submitted_total",
     description="Total number of trading orders submitted",
 )
-
-from fastapi import Request
-
-from app.api.rate_limiter import RateLimiter
 
 
 async def ip_identifier(request: Request):
@@ -32,9 +32,6 @@ async def ip_identifier(request: Request):
     if request.client:
         return request.client.host
     return "127.0.0.1"
-
-
-from app.api.deps import get_current_user_id
 
 
 @router.post(
@@ -57,13 +54,6 @@ async def create_order(
     return await order_service.create_order(order_in=order_in)
 
 
-import os
-
-import grpc
-from fastapi import Depends, HTTPException
-
-from app.grpc_stubs import orders_pb2, orders_pb2_grpc
-
 QUERY_SERVICE_GRPC_URL = os.getenv("QUERY_SERVICE_GRPC_URL", "query-service:50051")
 
 
@@ -83,7 +73,7 @@ async def get_order(
             request = orders_pb2.GetOrderRequest(order_id=order_id)
             response = await stub.GetOrder(request)
 
-            # Since gRPC returns default values for missing strings, we check if ID is empty
+            # Since gRPC returns default values for missing strings, we check if ID is empty  # noqa: E501
             if not response.id:
                 raise HTTPException(status_code=404, detail="Order not found")
 
@@ -107,8 +97,8 @@ async def get_order(
     except grpc.aio.AioRpcError as e:
         logger.error(f"gRPC error calling query-service: {e.details()}")
         if e.code() == grpc.StatusCode.NOT_FOUND:
-            raise HTTPException(status_code=404, detail="Order not found")
-        raise HTTPException(status_code=503, detail="Query service unavailable")
+            raise HTTPException(status_code=404, detail="Order not found") from e
+        raise HTTPException(status_code=503, detail="Query service unavailable") from e
 
 
 @router.get(
@@ -138,7 +128,7 @@ async def get_order_trades(order_id: str) -> Any:
             ]
     except grpc.aio.AioRpcError as e:
         logger.error(f"gRPC error calling query-service GetTrades: {e.details()}")
-        raise HTTPException(status_code=503, detail="Query service unavailable")
+        raise HTTPException(status_code=503, detail="Query service unavailable") from e
 
 
 @router.get(
@@ -186,4 +176,4 @@ async def get_orders_by_user(
             ]
     except grpc.aio.AioRpcError as e:
         logger.error(f"gRPC error calling query-service GetOrdersByUser: {e.details()}")
-        raise HTTPException(status_code=503, detail="Query service unavailable")
+        raise HTTPException(status_code=503, detail="Query service unavailable") from e

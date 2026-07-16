@@ -1,12 +1,10 @@
 import asyncio
 
-from app.core.kafka import KafkaApp
-from app.domain.engine import MatchingEngine
-
 import structlog
+from app.core.kafka import KafkaApp
 from app.core.logging import setup_logging
-
 from app.core.telemetry import setup_opentelemetry
+from app.domain.engine import MatchingEngine
 
 setup_logging()
 setup_opentelemetry()
@@ -57,8 +55,8 @@ async def main():
 
     adapter = PublisherAdapter()
 
-    from app.services.matching_service import MatchingService
     from app.core.config import settings
+    from app.services.matching_service import MatchingService
 
     service = MatchingService(
         engine=engine,

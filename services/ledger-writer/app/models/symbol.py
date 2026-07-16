@@ -1,7 +1,6 @@
+from app.db.base_class import Base
 from sqlalchemy import Boolean, Column, DateTime, String
 from sqlalchemy.sql import func
-
-from app.db.base_class import Base
 
 
 class Symbol(Base):

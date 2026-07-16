@@ -1,11 +1,10 @@
 import logging
 import uuid
 
-from fastapi import HTTPException, status
-
 from app.core.kafka import kafka_client
 from app.domain.order import OrderEntity
 from app.schemas.order import OrderCreate, OrderStatusChoice
+from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +45,15 @@ class OrderService:
         except ValueError as ve:
             # Domain invariant violation
             logger.warning(f"Domain validation error: {ve}")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)
+            ) from ve
         except Exception as e:
             logger.error(f"Error creating order in service: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create order",
-            )
+            ) from e
 
 
 order_service = OrderService()

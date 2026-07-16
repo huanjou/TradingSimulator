@@ -5,10 +5,9 @@ import time
 import uuid
 
 from aiokafka import AIOKafkaProducer
+from app.core.config import get_settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-
-from app.core.config import get_settings
 
 
 async def run_benchmark():
@@ -42,10 +41,10 @@ async def run_benchmark():
 
     # Pre-insert orders so they can be updated
     insert_user_query = text(
-        "INSERT INTO users (id, email, hashed_password, created_at) VALUES (:id, :email, :hashed_password, now()) ON CONFLICT (id) DO NOTHING"
+        "INSERT INTO users (id, email, hashed_password, created_at) VALUES (:id, :email, :hashed_password, now()) ON CONFLICT (id) DO NOTHING"  # noqa: E501
     )
     insert_query = text(
-        "INSERT INTO orders (id, user_id, symbol, side, order_type, price, quantity, status, created_at, updated_at) VALUES (:id, :user_id, :symbol, :side, :order_type, :price, :quantity, :status, now(), now())"
+        "INSERT INTO orders (id, user_id, symbol, side, order_type, price, quantity, status, created_at, updated_at) VALUES (:id, :user_id, :symbol, :side, :order_type, :price, :quantity, :status, now(), now())"  # noqa: E501
     )
 
     mock_user_id = str(uuid.uuid4())
@@ -85,7 +84,7 @@ async def run_benchmark():
     print("Starting Ledger Writer benchmark...")
 
     produce_start = time.time()
-    for order_id, msg in messages:
+    for _, msg in messages:
         await producer.send_and_wait("order_updates", msg)
     produce_end = time.time()
 

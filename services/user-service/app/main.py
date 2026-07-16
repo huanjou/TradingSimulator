@@ -1,13 +1,12 @@
 from contextlib import asynccontextmanager
 
 import structlog
+from app.api.api_router import api_router
+from app.core.config import settings
+from app.core.redis import redis_client
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
-
-from app.api.api_router import api_router
-from app.core.config import settings
-from app.core.redis import close_redis, init_redis
 
 # Structlog configuration
 structlog.configure(
@@ -34,12 +33,12 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
 
     # Init Redis
-    await init_redis()
+    await redis_client.connect(str(settings.REDIS_URL))
 
     yield
 
     # Clean up Redis
-    await close_redis()
+    await redis_client.disconnect()
 
 
 app = FastAPI(
@@ -60,8 +59,3 @@ app.add_middleware(
 Instrumentator().instrument(app).expose(app)
 
 app.include_router(api_router, prefix="/api/v1")
-
-
-@app.get("/health", tags=["Health"])
-def health_check():
-    return {"status": "ok", "service": settings.PROJECT_NAME}

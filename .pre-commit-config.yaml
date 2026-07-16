@@ -13,7 +13,7 @@ repos:
     rev: v0.4.5
     hooks:
       - id: ruff
-        args: [ --fix ]
+        args: [ --fix, --config, ruff.toml ]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-prettier

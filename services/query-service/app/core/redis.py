@@ -1,7 +1,6 @@
 import structlog
-from redis.asyncio import ConnectionPool, Redis
-
 from app.core.config import get_settings
+from redis.asyncio import ConnectionPool, Redis
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)

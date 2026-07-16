@@ -1,13 +1,13 @@
 import asyncio
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import structlog
 
 from app.api.stream import router as stream_router
-from app.services.kafka_streamer import kafka_streamer
 from app.core.config import settings
+from app.services.kafka_streamer import kafka_streamer
 
 logger = structlog.get_logger(__name__)
 

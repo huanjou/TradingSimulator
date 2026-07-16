@@ -1,7 +1,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-
 from app.domain.order import OrderEntity
 from app.services.order_service import get_order_by_id
 

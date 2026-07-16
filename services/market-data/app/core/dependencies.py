@@ -1,6 +1,10 @@
+from typing import TYPE_CHECKING
+
 import requests
 import structlog
 
+if TYPE_CHECKING:
+    from aiokafka import AIOKafkaConsumer
 from app.core.config import settings
 from app.providers.base import MarketDataProvider
 from app.providers.binance import BinanceMarketDataProvider

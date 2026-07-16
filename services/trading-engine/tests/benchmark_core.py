@@ -1,8 +1,9 @@
+import random
 import time
 import uuid
-import random
 from decimal import Decimal
-from app.domain.order import Order, OrderSide, OrderType, OrderStatus
+
+from app.domain.order import Order, OrderSide, OrderStatus, OrderType
 from app.domain.order_book import OrderBook
 
 

@@ -1,9 +1,8 @@
 import uuid
 
+from app.db.base import Base
 from sqlalchemy import Column, Float, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-
-from app.db.base import Base
 
 
 class Trade(Base):

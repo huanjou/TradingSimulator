@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from decimal import Decimal
 import uuid
+from decimal import Decimal
+
+from pydantic import BaseModel, Field
 
 
 class Trade(BaseModel):

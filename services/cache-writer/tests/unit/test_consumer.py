@@ -1,15 +1,14 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from app.services.consumer import consume
 
 
 @pytest.mark.asyncio
 async def test_consumer_fatal_error_no_commit():
     """
-    Test that if process_orders raises a fatal error, the consumer does NOT commit the offset,
-    and the exception propagates up to crash the consumer.
+    Test that if process_orders raises a fatal error, the consumer does NOT
+    commit the offset, and the exception propagates up to crash the consumer.
     """
     mock_consumer = AsyncMock()
 

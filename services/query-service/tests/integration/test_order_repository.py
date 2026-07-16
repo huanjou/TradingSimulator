@@ -1,7 +1,7 @@
 import pytest
-
 from app.models.order import OrderStatusChoice
 from app.repositories.order import OrderRepository
+
 from tests.factories.models import OrderFactory, UserFactory
 
 

@@ -1,10 +1,9 @@
 import asyncio
 import logging
 
-from sqlalchemy.future import select
-
 from app.db.session import AsyncSessionLocal
 from app.models.user import User
+from sqlalchemy.future import select
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -1,8 +1,7 @@
 import orjson
 import structlog
-from opentelemetry import metrics
-
 from app.services.cache_service import cache_orders_bulk
+from opentelemetry import metrics
 
 logger = structlog.get_logger(__name__)
 

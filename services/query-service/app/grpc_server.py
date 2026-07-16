@@ -2,7 +2,6 @@ import uuid
 
 import grpc
 import structlog
-
 from app.db.session import AsyncSessionLocal
 from app.grpc_stubs import orders_pb2, orders_pb2_grpc
 from app.services.order_service import get_order_by_id

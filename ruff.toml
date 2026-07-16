@@ -1,0 +1,10 @@
+line-length = 88
+extend-exclude = [
+    "**/grpc_stubs/*",
+    "**/alembic/versions/*",
+]
+force-exclude = true
+
+[lint]
+select = ["E", "F", "W", "I", "B"]
+extend-ignore = ["B008"]

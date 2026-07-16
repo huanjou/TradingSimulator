@@ -14,7 +14,7 @@ original_url = os.environ.get(
 )
 parsed = urlparse(original_url)
 test_db_url = urlunparse(parsed._replace(path="/test_ledger_db"))
-# Use the original db to connect and create the test db, because the default 'postgres' might not be accessible.
+# Use the original db to connect and create the test db, because the default 'postgres' might not be accessible.  # noqa: E501
 sys_db_url = urlunparse(parsed._replace(scheme="postgresql"))
 
 os.environ["POSTGRES_URL"] = test_db_url

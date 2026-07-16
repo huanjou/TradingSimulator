@@ -1,9 +1,9 @@
 import pytest
-from httpx import ASGITransport, AsyncClient
-
 from app.db.session import get_db
 from app.main import app
 from app.models.order import OrderStatusChoice
+from httpx import ASGITransport, AsyncClient
+
 from tests.factories.models import OrderFactory, UserFactory
 
 

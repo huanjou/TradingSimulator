@@ -1,10 +1,9 @@
 import time
 
 import pytest
+from app.core.middleware import setup_middlewares
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app.core.middleware import setup_middlewares
 
 
 @pytest.fixture

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 # 1. We extract the host/port from the default POSTGRES_URL or environment,
 # and replace the database name with test_ledger_db.
-# Crucially, query-service points to postgres-replica by default, but we need primary to create DB and run tests safely without replication lag.
+# Crucially, query-service points to postgres-replica by default, but we need primary to create DB and run tests safely without replication lag.  # noqa: E501
 original_url = os.environ.get(
     "POSTGRES_URL", "postgresql+asyncpg://admin:password@127.0.0.1:5432/ledger_db"
 )

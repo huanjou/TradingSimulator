@@ -1,8 +1,8 @@
 import asyncio
+
 import orjson
 import structlog
 from aiokafka import AIOKafkaConsumer
-
 from app.providers.base import MarketDataProvider
 
 logger = structlog.get_logger(__name__)
@@ -12,7 +12,8 @@ async def consume_system_events(
     consumer: AIOKafkaConsumer, provider: MarketDataProvider
 ):
     """
-    Listens to system_events for SYMBOL_CREATED and dynamically updates the market data provider.
+    Listens to system_events for SYMBOL_CREATED and dynamically updates the
+    market data provider.
     """
     # Try connecting, with retries
     for attempt in range(5):

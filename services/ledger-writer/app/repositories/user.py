@@ -1,9 +1,8 @@
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.domain.user import UserEntity
 from app.models.user import User as DbUser
 from app.repositories.base import BaseRepository
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class UserRepository(BaseRepository[DbUser]):

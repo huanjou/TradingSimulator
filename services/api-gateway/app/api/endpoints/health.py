@@ -1,6 +1,5 @@
-from fastapi import APIRouter
-
 from app.core.kafka import kafka_client
+from fastapi import APIRouter
 
 router = APIRouter()
 

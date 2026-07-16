@@ -1,7 +1,6 @@
+from app.models.trade import Trade
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.trade import Trade
 
 
 class TradeRepository:

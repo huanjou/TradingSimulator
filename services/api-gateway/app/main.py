@@ -1,14 +1,13 @@
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
-
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.kafka import kafka_client
 from app.core.logging import setup_logging
 from app.core.middleware import setup_middlewares
 from app.core.telemetry import setup_opentelemetry
+from fastapi import FastAPI
 
 settings = get_settings()
 
@@ -28,7 +27,6 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize Redis for Custom RateLimiter
     try:
         import redis.asyncio as redis
-
         from app.api import rate_limiter
 
         rate_limiter.redis_client = redis.from_url(

@@ -2,7 +2,6 @@ import uuid
 
 import structlog
 from aiokafka import AIOKafkaConsumer
-
 from app.core.config import get_settings
 from app.services.processor import process_orders
 

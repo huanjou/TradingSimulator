@@ -1,7 +1,6 @@
 import uuid
 
 import factory
-
 from app.models.order import Order, OrderStatusChoice, OrderTypeChoice, SideChoice
 from app.models.user import User
 

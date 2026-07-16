@@ -1,12 +1,11 @@
 import orjson
 import structlog
-from opentelemetry import metrics
-
 from app.db.session import AsyncSessionLocal
 from app.repositories.order import order_repo
 from app.repositories.symbol import symbol_repo
 from app.repositories.trade import trade_repo
 from app.repositories.user import user_repo
+from opentelemetry import metrics
 
 logger = structlog.get_logger(__name__)
 
@@ -145,8 +144,8 @@ async def process_orders(messages, topic: str = "orders"):
                         len(order_updates_list), {"type": "order_update"}
                     )
                 except Exception as e:
-                    # SQLAlchemy raises StaleDataError if it expects to update N rows but updates < N rows.
-                    # This happens due to eventual consistency (Kafka delivers update before insert).
+                    # SQLAlchemy raises StaleDataError if it expects to update N rows but updates < N rows.  # noqa: E501
+                    # This happens due to eventual consistency (Kafka delivers update before insert).  # noqa: E501
                     logger.warning(
                         "bulk_update_failed_fallback_to_individual", error=str(e)
                     )

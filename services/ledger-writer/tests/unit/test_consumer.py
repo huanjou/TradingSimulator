@@ -1,15 +1,14 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from app.services.consumer import consume
 
 
 @pytest.mark.asyncio
 async def test_consumer_fatal_error_no_commit():
     """
-    Test that if process_orders raises a fatal error, the consumer does NOT commit the offset,
-    and the exception propagates up to crash the consumer.
+    Test that if process_orders raises a fatal error, the consumer does NOT
+    commit the offset, and the exception propagates up to crash the consumer.
     """
     mock_consumer = AsyncMock()
 
@@ -60,7 +59,7 @@ async def test_consumer_extracts_trace_context():
             self.topic = topic
             self.partition = 0
 
-    # Mock getmany to return one batch and then raise an exception to exit the infinite loop
+    # Mock getmany to return one batch and then raise an exception to exit the infinite loop  # noqa: E501
     mock_consumer.getmany.side_effect = [
         {
             MockTopicPartition(topic="orders"): [

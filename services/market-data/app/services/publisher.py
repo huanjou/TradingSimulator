@@ -1,7 +1,6 @@
 import orjson
 import structlog
 from aiokafka import AIOKafkaProducer
-
 from app.domain.models import MarketEvent
 
 logger = structlog.get_logger(__name__)
