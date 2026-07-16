@@ -1,16 +1,53 @@
+from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.api.endpoints import auth, users
+from app.api.api_router import api_router
 from app.core.config import settings
+from app.core.redis import close_redis, init_redis
+
+# Structlog configuration
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.db.base_class import Base
+    from app.db.session import engine
+
+    # Init DB
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # Init Redis
+    await init_redis()
+
+    yield
+
+    # Clean up Redis
+    await close_redis()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
+    lifespan=lifespan,
 )
 
-# In microservice environment behind API gateway, CORS might be handled at Gateway.
-# But for safety, we can allow origins if accessed directly.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,20 +56,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+# Instrument FastAPI with Prometheus metrics
+Instrumentator().instrument(app).expose(app)
+
+app.include_router(api_router, prefix="/api/v1")
 
 
-@app.on_event("startup")
-async def startup_event():
-    from app.db.base_class import Base
-    from app.db.session import engine
-
-    # Import all models here so they are registered with Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health_check():
     return {"status": "ok", "service": settings.PROJECT_NAME}

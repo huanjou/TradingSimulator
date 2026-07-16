@@ -1,16 +1,20 @@
 from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.redis import get_redis
 from app.db.session import get_db
-from app.models.user import User
-from app.schemas.user import TokenPayload
+from app.repositories.user import UserRepository
+from app.schemas.user import TokenPayload, UserResponse
 
 
 async def get_current_user(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> User:
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> UserResponse:
     # Extract token from Header or Cookie
     token: str | None = None
     is_cookie = False
@@ -53,8 +57,23 @@ async def get_current_user(
             detail="Could not validate credentials",
         ) from None
 
-    user = await db.get(User, token_data.sub)
+    user_id = token_data.sub
+    cache_key = f"user:{user_id}"
+
+    # 1. Check Redis Cache
+    cached_user = await redis.get(cache_key)
+    if cached_user:
+        return UserResponse.model_validate_json(cached_user)
+
+    # 2. Cache Miss -> Check DB
+    repo = UserRepository(db)
+    user = await repo.get_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return user
+    # 3. Save to Redis
+    user_response = UserResponse.model_validate(user)
+    # Cache for 5 mins
+    await redis.set(cache_key, user_response.model_dump_json(), ex=300)
+
+    return user_response
