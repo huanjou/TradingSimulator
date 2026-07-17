@@ -39,9 +39,7 @@ class UserRepository:
             except ValueError:
                 return None
 
-        stmt = select(DBUser).where(DBUser.id == user_id)
-        result = await self.db.execute(stmt)
-        db_user = result.scalar_one_or_none()
+        db_user = await self.db.get(DBUser, user_id)
         if not db_user:
             return None
         return self._to_domain(db_user)
@@ -56,6 +54,6 @@ class UserRepository:
 
     async def create(self, db_obj: DBUser) -> DomainUser:
         self.db.add(db_obj)
-        await self.db.commit()
+        await self.db.flush()
         await self.db.refresh(db_obj)
         return self._to_domain(db_obj)

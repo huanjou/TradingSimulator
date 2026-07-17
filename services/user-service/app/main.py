@@ -4,8 +4,10 @@ import structlog
 from app.api.api_router import api_router
 from app.core.config import settings
 from app.core.redis import redis_client
-from fastapi import FastAPI
+from app.services.auth import InvalidCredentialsException, UserAlreadyExistsException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 # Structlog configuration
@@ -25,13 +27,6 @@ structlog.configure(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.db.base_class import Base
-    from app.db.session import engine
-
-    # Init DB
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
     # Init Redis
     await redis_client.connect(str(settings.REDIS_URL))
 
@@ -46,6 +41,27 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(UserAlreadyExistsException)
+async def user_already_exists_exception_handler(
+    request: Request, exc: UserAlreadyExistsException
+):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)},
+    )
+
+
+@app.exception_handler(InvalidCredentialsException)
+async def invalid_credentials_exception_handler(
+    request: Request, exc: InvalidCredentialsException
+):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)},
+    )
+
 
 app.add_middleware(
     CORSMiddleware,

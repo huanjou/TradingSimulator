@@ -1,19 +1,14 @@
-from app.core.config import settings
 from app.core.redis import get_redis
+from app.core.security import verify_access_token
 from app.db.session import get_db
-from app.repositories.user import UserRepository
-from app.schemas.user import TokenPayload, UserResponse
+from app.schemas.user import UserResponse
+from app.services.user import get_user_by_id_cached
 from fastapi import Depends, HTTPException, Request, status
-from jose import JWTError, jwt
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def get_current_user(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    redis: Redis = Depends(get_redis),
-) -> UserResponse:
+def get_token(request: Request) -> str:
     # Extract token from Header or Cookie
     token: str | None = None
     is_cookie = False
@@ -43,36 +38,23 @@ async def get_current_user(
                 detail="CSRF token missing or incorrect",
             )
 
-    try:
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET.get_secret_value(),
-            algorithms=[settings.JWT_ALGORITHM],
-        )
-        token_data = TokenPayload(**payload)
-    except JWTError:
+    return token
+
+
+async def get_current_user(
+    token: str = Depends(get_token),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> UserResponse:
+    user_id = verify_access_token(token)
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-        ) from None
+        )
 
-    user_id = token_data.sub
-    cache_key = f"user:{user_id}"
-
-    # 1. Check Redis Cache
-    cached_user = await redis.get(cache_key)
-    if cached_user:
-        return UserResponse.model_validate_json(cached_user)
-
-    # 2. Cache Miss -> Check DB
-    repo = UserRepository(db)
-    user = await repo.get_by_id(user_id)
+    user = await get_user_by_id_cached(db, redis, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 3. Save to Redis
-    user_response = UserResponse.model_validate(user)
-    # Cache for 5 mins
-    await redis.set(cache_key, user_response.model_dump_json(), ex=300)
-
-    return user_response
+    return user
