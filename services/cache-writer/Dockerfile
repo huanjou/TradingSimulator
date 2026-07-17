@@ -7,6 +7,8 @@ FROM python:3.11-slim as base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=off \
+    POETRY_REQUESTS_TIMEOUT=1000 \
+    PIP_DEFAULT_TIMEOUT=1000 \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     POETRY_VIRTUALENVS_CREATE=false
 
@@ -24,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем Poetry
-ENV POETRY_VERSION=2.1.1
+ENV POETRY_VERSION=2.3.3
 RUN pip install "poetry==$POETRY_VERSION"
 
 # Создаем виртуальное окружение
@@ -49,7 +51,7 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Устанавливаем Poetry для dev-окружения
-ENV POETRY_VERSION=2.1.1
+ENV POETRY_VERSION=2.3.3
 RUN pip install "poetry==$POETRY_VERSION"
 
 # Доустанавливаем инструменты для разработки (dev-зависимости из poetry)

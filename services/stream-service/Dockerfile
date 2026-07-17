@@ -24,12 +24,12 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 WORKDIR $PYSETUP_PATH
 COPY pyproject.toml poetry.lock ./
 
-RUN poetry install --only main --no-root
+RUN poetry lock && poetry install --only main --no-root
 
 WORKDIR /app
 COPY . .
 
 # Install the app
-RUN poetry install --only main
+RUN poetry lock && poetry install --only main
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
