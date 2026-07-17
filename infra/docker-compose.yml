@@ -7,11 +7,11 @@ services:
     container_name: exchange_postgres_primary
     environment:
       POSTGRESQL_REPLICATION_MODE: master
-      POSTGRESQL_REPLICATION_USER: repl_user
-      POSTGRESQL_REPLICATION_PASSWORD: repl_password
-      POSTGRESQL_USERNAME: admin
-      POSTGRESQL_PASSWORD: password
-      POSTGRESQL_DATABASE: ledger_db
+      POSTGRESQL_REPLICATION_USER: ${POSTGRES_REPLICA_USER:-repl_user}
+      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-repl_password}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-admin}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-ledger_db}
     ports:
       - "5432:5432"
     volumes:
@@ -29,11 +29,11 @@ services:
     container_name: exchange_postgres_replica
     environment:
       POSTGRESQL_REPLICATION_MODE: slave
-      POSTGRESQL_REPLICATION_USER: repl_user
-      POSTGRESQL_REPLICATION_PASSWORD: repl_password
+      POSTGRESQL_REPLICATION_USER: ${POSTGRES_REPLICA_USER:-repl_user}
+      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-repl_password}
       POSTGRESQL_MASTER_HOST: postgres-primary
-      POSTGRESQL_USERNAME: admin
-      POSTGRESQL_PASSWORD: password
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-admin}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
       - "5433:5432"
     depends_on:
@@ -238,7 +238,7 @@ services:
       - QUERY_SERVICE_URL=http://query-service:8000
       - QUERY_SERVICE_GRPC_URL=query-service:50051
       - REDIS_URL=redis://redis:6379/0
-      - ENV=development
+      - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
       - ../services/api-gateway:/app
@@ -259,8 +259,8 @@ services:
     environment:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
-      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
-      - ENV=development
+      - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres-primary:5432/${POSTGRES_DB:-ledger_db}
+      - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
 
@@ -283,7 +283,7 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - REDIS_URL=redis://redis:6379/0
-      - ENV=development
+      - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       redis:
@@ -304,10 +304,10 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - POSTGRES_URL=postgresql+asyncpg://admin:password@postgres-replica:5432/ledger_db
-      - POSTGRES_PRIMARY_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
+      - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres-replica:5432/${POSTGRES_DB:-ledger_db}
+      - POSTGRES_PRIMARY_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres-primary:5432/${POSTGRES_DB:-ledger_db}
       - REDIS_URL=redis://redis:6379/0
-      - ENV=development
+      - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       postgres-replica:
@@ -329,7 +329,7 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - KAFKA_MARKET_DATA_TOPIC=market_data
-      - ENV=development
+      - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       kafka:
@@ -350,7 +350,7 @@ services:
       - KAFKA_MARKET_DATA_TOPIC=market_data
       - MARKET_PROVIDER=binance
       - MARKET_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
-      - ENV=development
+      - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       kafka:
@@ -386,9 +386,9 @@ services:
     ports:
       - "8003:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db
-      - JWT_SECRET=supersecretjwtkey123
-      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres-primary:5432/${POSTGRES_DB:-ledger_db}
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
+      - ENVIRONMENT=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       postgres-primary:
