@@ -2,27 +2,17 @@ from contextlib import asynccontextmanager
 
 import structlog
 from app.api.api_router import api_router
+from app.api.exceptions import setup_exception_handlers
 from app.core.config import settings
+from app.core.logging import setup_logging
+from app.core.middleware import setup_middlewares
 from app.core.redis import redis_client
-from app.services.auth import InvalidCredentialsException, UserAlreadyExistsException
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from app.core.telemetry import setup_opentelemetry
+from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
-# Structlog configuration
-structlog.configure(
-    processors=[
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer(),
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
+setup_logging(settings.LOG_LEVEL)
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
@@ -42,34 +32,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Exception handlers
+setup_exception_handlers(app)
 
-@app.exception_handler(UserAlreadyExistsException)
-async def user_already_exists_exception_handler(
-    request: Request, exc: UserAlreadyExistsException
-):
-    return JSONResponse(
-        status_code=400,
-        content={"detail": str(exc)},
-    )
+# Setup middlewares (CORS, Logging)
+setup_middlewares(app)
 
-
-@app.exception_handler(InvalidCredentialsException)
-async def invalid_credentials_exception_handler(
-    request: Request, exc: InvalidCredentialsException
-):
-    return JSONResponse(
-        status_code=400,
-        content={"detail": str(exc)},
-    )
-
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Instrument FastAPI with OpenTelemetry traces
+setup_opentelemetry(app)
 
 # Instrument FastAPI with Prometheus metrics
 Instrumentator().instrument(app).expose(app)
