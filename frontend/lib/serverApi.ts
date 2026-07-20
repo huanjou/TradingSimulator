@@ -7,6 +7,8 @@ export async function fetchUserInSSR() {
   const cookieStore = cookies();
   const token = cookieStore.get('access_token');
 
+  console.log('[SSR] access_token cookie:', token ? 'FOUND' : 'NOT FOUND');
+
   if (!token) {
     return null;
   }
@@ -19,12 +21,16 @@ export async function fetchUserInSSR() {
       cache: 'no-store',
     });
 
+    console.log('[SSR] /users/me response status:', res.status);
+
     if (res.ok) {
-      return await res.json();
+      const user = await res.json();
+      console.log('[SSR] user fetched:', user?.email);
+      return user;
     }
     return null;
   } catch (error) {
-    console.error('Failed to fetch user in SSR:', error);
+    console.error('[SSR] Failed to fetch user in SSR:', error);
     return null;
   }
 }

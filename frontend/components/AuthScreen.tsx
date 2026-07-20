@@ -6,6 +6,7 @@ export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login, register, error, clearError } = useAuthStore();
 
@@ -19,9 +20,9 @@ export default function AuthScreen() {
 
     try {
       if (isLogin) {
-        await login({ email, password });
+        await login({ email, password, remember_me: rememberMe });
       } else {
-        await register({ email, password });
+        await register({ email, password, remember_me: rememberMe });
       }
     } catch (err: any) {
       // Error is handled in the store, but we catch it to prevent unhandled promise rejections
@@ -71,6 +72,22 @@ export default function AuthScreen() {
               placeholder="••••••••"
               required
             />
+          </div>
+
+          <div className="flex items-center gap-2 mt-1 mb-2">
+            <input
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 text-emerald-500 bg-zinc-800 border-zinc-700 rounded focus:ring-emerald-500 focus:ring-offset-zinc-900"
+            />
+            <label
+              htmlFor="rememberMe"
+              className="text-sm text-zinc-400 cursor-pointer select-none"
+            >
+              Remember me
+            </label>
           </div>
 
           <button

@@ -1,7 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useAuthStore, User } from '../store/useAuthStore';
+import { useEffect, useRef, useState } from 'react';
+import {
+  createAuthStore,
+  AuthStoreContext,
+  AuthStoreType,
+  useAuthStore,
+  User,
+} from '../store/useAuthStore';
 import AuthScreen from './AuthScreen';
 
 export default function AuthProvider({
@@ -11,21 +17,27 @@ export default function AuthProvider({
   children: React.ReactNode;
   initialUser: User | null;
 }) {
-  const initialized = useRef(false);
-  const { isAuthenticated } = useAuthStore();
-
-  if (!initialized.current) {
-    useAuthStore.setState({
+  // 1. Create an isolated store instance per request/client
+  const storeRef = useRef<AuthStoreType>();
+  if (!storeRef.current) {
+    storeRef.current = createAuthStore({
       user: initialUser,
       isAuthenticated: !!initialUser,
       isInitializing: false,
     });
-    initialized.current = true;
   }
 
-  // We no longer render a spinner.
-  // If not authenticated, we immediately show the AuthScreen.
-  if (!isAuthenticated && !initialUser) {
+  return (
+    <AuthStoreContext.Provider value={storeRef.current}>
+      <AuthGate>{children}</AuthGate>
+    </AuthStoreContext.Provider>
+  );
+}
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  if (!isAuthenticated) {
     return <AuthScreen />;
   }
 
