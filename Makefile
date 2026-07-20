@@ -45,7 +45,7 @@ test-engine:
 	docker exec -e KAFKA_BROKER="kafka:9092" exchange_trading_engine pytest $(ARGS)
 
 seed:
-	docker exec exchange_ledger_writer python -m scripts.seed
+	cd services/api-gateway && poetry run python ../../scripts/seed.py
 
 load-test:
 	cd infra && docker compose -p load_test -f docker-compose.load.yml up --build --abort-on-container-exit --exit-code-from k6

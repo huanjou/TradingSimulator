@@ -405,6 +405,8 @@ services:
     container_name: exchange_frontend
     ports:
       - "3000:3000"
+    environment:
+      - WATCHPACK_POLLING=true
     volumes:
       - ../frontend:/app
       - /app/node_modules
