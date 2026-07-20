@@ -1,4 +1,5 @@
 import secrets
+from datetime import timedelta
 
 from app.core.security import create_access_token, verify_password
 from app.domain.user import User as DomainUser
@@ -34,7 +35,12 @@ async def login_user_service(db: AsyncSession, user_in: UserLogin) -> dict:
     if not user or not await verify_password(user_in.password, user.hashed_password):
         raise InvalidCredentialsException("Incorrect email or password")
 
-    access_token = create_access_token(subject=str(user.id))
+    # Set token expiry based on remember_me flag
+    expires_delta = timedelta(days=30) if user_in.remember_me else None
+    access_token = create_access_token(
+        subject=str(user.id),
+        expires_delta=expires_delta,
+    )
     csrf_token = secrets.token_urlsafe(32)
 
     return {"user": user, "access_token": access_token, "csrf_token": csrf_token}

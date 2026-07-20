@@ -17,6 +17,7 @@ class UserCreate(UserBase):
 # Properties to receive via API on login
 class UserLogin(UserBase):
     password: str
+    remember_me: bool = False
 
 
 # Properties to return to client

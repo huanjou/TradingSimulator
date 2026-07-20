@@ -25,12 +25,18 @@ async def login(
 ):
     result = await login_user_service(db, user_in)
 
+    # If remember_me is True, set cookie to 30 days. Otherwise Session Cookie.
+    if user_in.remember_me:
+        cookie_max_age = 30 * 24 * 60 * 60
+    else:
+        cookie_max_age = None
+
     # Set HTTP-only cookie for access token
     response.set_cookie(
         key="access_token",
         value=result["access_token"],
         httponly=True,
-        max_age=7 * 24 * 60 * 60,  # 7 days
+        max_age=cookie_max_age,
         samesite="strict",
         secure=settings.COOKIE_SECURE,
         path="/",
@@ -41,7 +47,7 @@ async def login(
         key="csrf_token",
         value=result["csrf_token"],
         httponly=False,
-        max_age=7 * 24 * 60 * 60,
+        max_age=cookie_max_age,
         samesite="strict",
         secure=settings.COOKIE_SECURE,
         path="/",
@@ -56,6 +62,18 @@ async def login(
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie(key="access_token")
-    response.delete_cookie(key="csrf_token")
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        secure=settings.COOKIE_SECURE,
+        httponly=True,
+        samesite="strict",
+    )
+    response.delete_cookie(
+        key="csrf_token",
+        path="/",
+        secure=settings.COOKIE_SECURE,
+        httponly=False,
+        samesite="strict",
+    )
     return {"detail": "Successfully logged out"}
