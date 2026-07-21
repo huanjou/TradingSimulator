@@ -58,3 +58,42 @@ def get_current_user_id(request: Request) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         ) from e
+
+
+def get_current_admin_user(request: Request) -> str:
+    """
+    Extracts the user ID and verifies that the user has an ADMIN role.
+    """
+    # Reuse extraction logic (this requires token to be available, but we can just duplicate or refactor later)
+    # Actually, simpler to just get token directly here since the logic is small, or just call get_current_user_id to validate CSRF first.
+    user_id = get_current_user_id(request)
+
+    # We need the token again to check role
+    token = request.headers.get("Authorization")
+    if token and token.startswith("Bearer "):
+        token = token.split(" ")[1]
+    else:
+        token = request.cookies.get("access_token")
+
+    try:
+        payload = jwt.decode(
+            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
+        )
+        if payload.get("role") != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions",
+            )
+        return user_id
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        ) from e
+
+
+def get_admin_service():
+    from app.core.kafka import kafka_client
+    from app.services.admin import AdminService
+
+    return AdminService(kafka_client)

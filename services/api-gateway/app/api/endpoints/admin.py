@@ -1,45 +1,25 @@
-import json
-
-from aiokafka import AIOKafkaProducer
+from app.api.deps import get_admin_service, get_current_admin_user
 from app.core.config import get_settings
+from app.schemas.admin import SymbolCreateRequest, SymbolCreateResponse
 from app.services.admin import AdminService
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, status
 
 router = APIRouter()
 settings = get_settings()
 
 
-class SymbolCreateRequest(BaseModel):
-    symbol: str
-
-
-async def get_kafka_producer():
-    producer = AIOKafkaProducer(
-        bootstrap_servers=settings.KAFKA_BROKER,
-        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-    )
-    await producer.start()
-    try:
-        yield producer
-    finally:
-        await producer.stop()
-
-
-async def get_admin_service(producer: AIOKafkaProducer = Depends(get_kafka_producer)):
-    return AdminService(producer)
-
-
-@router.post("/symbols")
+@router.post(
+    "/symbols",
+    response_model=SymbolCreateResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def create_symbol(
     request: SymbolCreateRequest,
     admin_service: AdminService = Depends(get_admin_service),
+    current_admin_id: str = Depends(get_current_admin_user),
 ):
-    try:
-        await admin_service.create_symbol(request.symbol)
-        return {
-            "status": "success",
-            "message": f"Symbol {request.symbol} creation event published",
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    await admin_service.create_symbol(request.symbol)
+    return SymbolCreateResponse(
+        status="success",
+        message=f"Symbol {request.symbol} creation event published",
+    )

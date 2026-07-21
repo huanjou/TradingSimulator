@@ -1,6 +1,6 @@
 import structlog
-from aiokafka import AIOKafkaProducer
 from app.core.config import get_settings
+from app.core.kafka import KafkaProducerClient
 from app.domain.system_event import SystemEvent, SystemEventType
 
 logger = structlog.get_logger(__name__)
@@ -8,8 +8,8 @@ settings = get_settings()
 
 
 class AdminService:
-    def __init__(self, producer: AIOKafkaProducer):
-        self.producer = producer
+    def __init__(self, kafka_client: KafkaProducerClient):
+        self.kafka_client = kafka_client
 
     async def create_symbol(self, symbol: str) -> str:
         """
@@ -21,7 +21,10 @@ class AdminService:
         )
 
         try:
-            await self.producer.send_and_wait("system_events", value=event.model_dump())
+            # We await send_event which buffers it, but KafkaProducerClient handles propagation
+            await self.kafka_client.send_event(
+                topic="system_events", value=event.model_dump()
+            )
             logger.info(
                 "Published SYMBOL_CREATED event", symbol=symbol, event_id=event.event_id
             )
