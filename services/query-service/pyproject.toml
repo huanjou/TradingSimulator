@@ -25,6 +25,7 @@ setuptools = "^77.0.1"
 grpcio = "^1.82.0"
 grpcio-tools = "^1.82.0"
 protobuf = "^7.35.1"
+opentelemetry-instrumentation-grpc = "0.64b0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.2"
