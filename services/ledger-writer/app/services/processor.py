@@ -169,8 +169,26 @@ async def process_orders(messages, topic: str = "orders"):
 
             trade_inserts_list = list(trade_inserts.values())
             if trade_inserts_list:
-                await trade_repo.upsert_bulk(session, trade_inserts_list)
-                ledger_writes_counter.add(len(trade_inserts), {"type": "trade_insert"})
+                try:
+                    await trade_repo.upsert_bulk(session, trade_inserts_list)
+                    ledger_writes_counter.add(
+                        len(trade_inserts), {"type": "trade_insert"}
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "bulk_trade_insert_failed_fallback_to_individual", error=str(e)
+                    )
+                    await session.rollback()
+                    for trade_data in trade_inserts_list:
+                        try:
+                            await trade_repo.upsert_bulk(session, [trade_data])
+                        except Exception as inner_e:
+                            logger.error(
+                                "individual_trade_insert_failed",
+                                trade_id=trade_data["id"],
+                                error=str(inner_e),
+                            )
+                            await session.rollback()
 
             for event in system_events:
                 if event.get("type") == "SYMBOL_CREATED":

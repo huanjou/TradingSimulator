@@ -15,8 +15,8 @@ async def test_process_orders_success():
     messages = [
         MockMessage(
             {
-                "id": "order-1",
-                "user_id": "user-1",
+                "id": "1049b870-9115-42f0-bc65-bbeaad370d71",
+                "user_id": "597c03a6-14e3-4dd2-aa9c-ec22e74271cf",
                 "symbol": "BTC/USD",
                 "side": "BUY",
                 "type": "MARKET",
@@ -44,8 +44,8 @@ async def test_process_orders_db_failure():
     messages = [
         MockMessage(
             {
-                "id": "order-1",
-                "user_id": "user-1",
+                "id": "1049b870-9115-42f0-bc65-bbeaad370d71",
+                "user_id": "597c03a6-14e3-4dd2-aa9c-ec22e74271cf",
                 "symbol": "BTC/USD",
                 "side": "BUY",
                 "type": "MARKET",
@@ -74,7 +74,7 @@ async def test_process_orders_update_success():
     messages = [
         MockMessage(
             {
-                "order_id": "order-1",
+                "order_id": "1049b870-9115-42f0-bc65-bbeaad370d71",
                 "status": "FILLED",
                 "filled_quantity": 1.0,
             }
