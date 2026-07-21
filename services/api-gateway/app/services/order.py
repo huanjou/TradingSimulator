@@ -1,22 +1,22 @@
 import logging
 import uuid
 
+from app.api.exceptions import OrderSubmissionFailedException, OrderValidationException
 from app.core.kafka import kafka_client
 from app.domain.order import OrderEntity
 from app.schemas.order import OrderCreate, OrderStatusChoice
-from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 
 
 class OrderService:
     @staticmethod
-    async def create_order(order_in: OrderCreate) -> OrderEntity:
+    async def create_order(user_id: str, order_in: OrderCreate) -> OrderEntity:
         try:
             # 1. Map DTO to pure Domain Entity (Status will be PENDING by default)
             domain_order = OrderEntity(
                 id=uuid.uuid4(),
-                user_id=order_in.user_id,
+                user_id=uuid.UUID(user_id),
                 symbol=order_in.symbol,
                 side=order_in.side,
                 order_type=order_in.order_type,
@@ -45,14 +45,11 @@ class OrderService:
         except ValueError as ve:
             # Domain invariant violation
             logger.warning(f"Domain validation error: {ve}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)
-            ) from ve
+            raise OrderValidationException(str(ve)) from ve
         except Exception as e:
             logger.error(f"Error creating order in service: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create order",
+            raise OrderSubmissionFailedException(
+                f"Failed to submit order: {str(e)}"
             ) from e
 
 
