@@ -5,11 +5,10 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_create_limit_order_success(client, user_factory):
+async def test_create_limit_order_success(auth_client):
     """Happy Path: Test creating a LIMIT order with a valid price."""
-    user = await user_factory()
+    client, user = auth_client
     payload = {
-        "user_id": str(user.id),
         "symbol": "BTC/USD",
         "side": "BUY",
         "order_type": "LIMIT",
@@ -24,11 +23,10 @@ async def test_create_limit_order_success(client, user_factory):
 
 
 @pytest.mark.asyncio
-async def test_create_market_order_success(client, user_factory):
+async def test_create_market_order_success(auth_client):
     """Happy Path: Test creating a MARKET order without a price."""
-    user = await user_factory()
+    client, user = auth_client
     payload = {
-        "user_id": str(user.id),
         "symbol": "ETH/USD",
         "side": "SELL",
         "order_type": "MARKET",
@@ -57,13 +55,12 @@ async def test_create_market_order_success(client, user_factory):
 )
 @pytest.mark.asyncio
 async def test_create_order_schema_validation(
-    client, user_factory, invalid_payload_updates, expected_status
+    auth_client, invalid_payload_updates, expected_status
 ):
     """Sad Path: Various payload schema validation failures
     (API Pydantic validation)."""
-    user = await user_factory()
+    client, user = auth_client
     payload = {
-        "user_id": str(user.id),
         "symbol": "BTC/USD",
         "side": "BUY",
         "order_type": "LIMIT",
@@ -78,7 +75,8 @@ async def test_create_order_schema_validation(
 
 
 @pytest.mark.asyncio
-async def test_create_order_missing_fields(client):
+async def test_create_order_missing_fields(auth_client):
+    client, user = auth_client
     """Sad Path: Missing required fields (API Pydantic validation)."""
     payload = {
         "symbol": "BTC/USD"
@@ -86,15 +84,14 @@ async def test_create_order_missing_fields(client):
     }
     response = await client.post("/api/v1/orders/", json=payload)
     assert response.status_code == 422
-    assert len(response.json()["detail"]) >= 4
+    assert len(response.json()["detail"]) >= 3
 
 
 @pytest.mark.asyncio
-async def test_create_limit_order_without_price(client, user_factory):
+async def test_create_limit_order_without_price(auth_client):
     """Sad Path: Limit order without a price (Domain Invariant validation)."""
-    user = await user_factory()
+    client, user = auth_client
     payload = {
-        "user_id": str(user.id),
         "symbol": "BTC/USD",
         "side": "BUY",
         "order_type": "LIMIT",
@@ -102,16 +99,15 @@ async def test_create_limit_order_without_price(client, user_factory):
         # Missing price
     }
     response = await client.post("/api/v1/orders/", json=payload)
-    assert response.status_code == 400
-    assert "Limit orders must have a specified price." in response.json()["detail"]
+    assert response.status_code == 422
+    assert "Limit orders must have a specified price." in str(response.json()["detail"])
 
 
 @pytest.mark.asyncio
-async def test_create_order_publishes_to_kafka(client, user_factory):
+async def test_create_order_publishes_to_kafka(auth_client):
     """Happy Path: Ensure Kafka send_event is called with correct data."""
-    user = await user_factory()
+    client, user = auth_client
     payload = {
-        "user_id": str(user.id),
         "symbol": "BTC/USD",
         "side": "BUY",
         "order_type": "LIMIT",
@@ -145,12 +141,11 @@ async def test_create_order_publishes_to_kafka(client, user_factory):
 
 
 @pytest.mark.asyncio
-async def test_e2e_create_and_get_order(client, user_factory):
+async def test_e2e_create_and_get_order(auth_client):
     """E2E Flow: Create order -> Kafka -> Ledger Writer -> DB -> Query Service
     -> Gateway"""
-    user = await user_factory()
+    client, user = auth_client
     payload = {
-        "user_id": str(user.id),
         "symbol": "BTC/USD",
         "side": "BUY",
         "order_type": "LIMIT",
