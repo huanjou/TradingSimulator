@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class SideChoice(str, enum.Enum):
@@ -22,7 +22,6 @@ class OrderStatusChoice(str, enum.Enum):
 
 
 class OrderBase(BaseModel):
-    user_id: uuid.UUID
     symbol: str = Field(
         ..., pattern=r"^[A-Z0-9]+/[A-Z0-9]+$", max_length=20, examples=["BTC/USD"]
     )
@@ -37,11 +36,16 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
-    pass
+    @model_validator(mode="after")
+    def validate_limit_order_price(self) -> "OrderCreate":
+        if self.order_type == OrderTypeChoice.LIMIT and self.price is None:
+            raise ValueError("Limit orders must have a specified price.")
+        return self
 
 
 class OrderResponse(OrderBase):
     id: uuid.UUID
+    user_id: uuid.UUID
     status: OrderStatusChoice
 
     model_config = ConfigDict(from_attributes=True)

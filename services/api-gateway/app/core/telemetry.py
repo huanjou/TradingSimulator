@@ -37,8 +37,10 @@ def setup_opentelemetry(app: FastAPI):
     # Instrument FastAPI to automatically track requests
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
 
         FastAPIInstrumentor.instrument_app(app)
+        GrpcInstrumentorClient().instrument()
     except Exception as e:
         import logging
 

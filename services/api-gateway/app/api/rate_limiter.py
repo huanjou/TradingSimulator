@@ -21,12 +21,12 @@ class RateLimiter:
         if get_settings().ENV == "test":
             return  # Skip in tests
 
-        # Identify client by X-Forwarded-For or client host
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            ip = forwarded.split(",")[0].strip()
-        else:
-            ip = request.client.host if request.client else "127.0.0.1"
+        # Identify client securely
+        # Note: Trusting X-Forwarded-For blindly is insecure.
+        # In a real production setup, the proxy (like Nginx/Traefik) should set X-Real-IP
+        # or we should strip untrusted X-Forwarded-For headers before they reach here.
+        # We'll use request.client.host as the primary source of truth.
+        ip = request.client.host if request.client else "127.0.0.1"
 
         key = f"rate_limit:{request.url.path}:{ip}"
 

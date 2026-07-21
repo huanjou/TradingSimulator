@@ -1123,6 +1123,27 @@ opentelemetry-util-http = "0.64b0"
 instruments = ["fastapi (>=0.92,<1.0)"]
 
 [[package]]
+name = "opentelemetry-instrumentation-grpc"
+version = "0.64b0"
+description = "OpenTelemetry gRPC instrumentation"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "opentelemetry_instrumentation_grpc-0.64b0-py3-none-any.whl", hash = "sha256:66c8d875b56deab35dd4f6192d5bf95fbc777bbb0f054528b647dc8f363a6122"},
+    {file = "opentelemetry_instrumentation_grpc-0.64b0.tar.gz", hash = "sha256:e690781928b6fdb930637c983d27968515ffc333d5c67be548e141870786b482"},
+]
+
+[package.dependencies]
+opentelemetry-api = ">=1.12,<2.0"
+opentelemetry-instrumentation = "0.64b0"
+opentelemetry-semantic-conventions = "0.64b0"
+wrapt = ">=1.0.0,<3.0.0"
+
+[package.extras]
+instruments = ["grpcio (>=1.42.0)"]
+
+[[package]]
 name = "opentelemetry-proto"
 version = "1.43.0"
 description = "OpenTelemetry Python Proto"
@@ -2306,4 +2327,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "86985a07f97e3e93b2839b00fdfe8841923dd03af309af8bcc2dee87cdf9b46a"
+content-hash = "dd4e63f21d1cd28a7e435c2f0ac279a3991486c12b0a67427d4f1481e09491a2"
