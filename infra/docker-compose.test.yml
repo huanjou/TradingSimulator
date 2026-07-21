@@ -74,6 +74,7 @@ services:
       - QUERY_SERVICE_GRPC_URL=query-service:50051
       - TESTING=1
       - ENV=test
+      - JWT_SECRET=test_secret_for_tests
     depends_on:
       test-kafka:
         condition: service_healthy

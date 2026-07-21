@@ -239,6 +239,7 @@ services:
       - QUERY_SERVICE_GRPC_URL=query-service:50051
       - REDIS_URL=redis://redis:6379/0
       - ENV=${APP_ENV:-development}
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     volumes:
       - ../services/api-gateway:/app
