@@ -1,8 +1,10 @@
 import time
 
 import structlog
+from app.core.config import settings
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 logger = structlog.get_logger("api_access")
 
@@ -26,10 +28,13 @@ def setup_middlewares(app: FastAPI):
         )
         return response
 
+    # Trust X-Forwarded-For headers from our proxy
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
     # CORS configuration
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
