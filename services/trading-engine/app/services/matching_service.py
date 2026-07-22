@@ -1,3 +1,5 @@
+import asyncio
+from decimal import Decimal
 from typing import Protocol
 
 import orjson
@@ -84,20 +86,17 @@ class MatchingService:
 
             # Await all publishes concurrently
             if publish_futures:
-                import asyncio
-
                 await asyncio.gather(*publish_futures)
 
         except Exception as e:
             logger.error("order_batch_handling_failed", error=str(e), exc_info=True)
+            raise
 
     async def handle_market_data_batch(self, market_data_batch: list[dict]) -> None:
         try:
             publish_futures = []
 
             for md in market_data_batch:
-                from decimal import Decimal
-
                 symbol = md.get("symbol")
                 bid = Decimal(str(md.get("bid_price", 0)))
                 ask = Decimal(str(md.get("ask_price", 0)))
@@ -139,11 +138,10 @@ class MatchingService:
 
             # Await all publishes concurrently
             if publish_futures:
-                import asyncio
-
                 await asyncio.gather(*publish_futures)
 
         except Exception as e:
             logger.error(
                 "market_data_batch_handling_failed", error=str(e), exc_info=True
             )
+            raise

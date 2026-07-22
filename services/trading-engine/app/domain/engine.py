@@ -1,3 +1,5 @@
+import heapq
+import itertools
 from decimal import Decimal
 from typing import Dict, List, Tuple
 
@@ -15,14 +17,48 @@ class MatchingEngine:
     def __init__(self):
         # symbol -> MarketPrice
         self.market_prices: Dict[str, MarketPrice] = {}
-        # symbol -> list of pending Orders
-        self.pending_orders: Dict[str, List[Order]] = {}
+        # Heaps for orders:
+        # bids (max-heap): stores (-price, counter, Order)
+        self.bids: Dict[str, List[Tuple[Decimal, int, Order]]] = {}
+        # asks (min-heap): stores (price, counter, Order)
+        self.asks: Dict[str, List[Tuple[Decimal, int, Order]]] = {}
+        self._counter = itertools.count()
+
+    def get_all_pending_orders(self) -> List[Order]:
+        """Returns a flat list of all pending orders for snapshotting."""
+        orders = []
+        for heap in self.bids.values():
+            orders.extend(item[2] for item in heap)
+        for heap in self.asks.values():
+            orders.extend(item[2] for item in heap)
+        return orders
+
+    def restore_orders(self, orders: List[Order]) -> None:
+        """Hydrates the engine state with existing pending orders."""
+        for order in orders:
+            self._add_to_book(order)
+
+    def _add_to_book(self, order: Order):
+        """Helper to add an order to the correct priority queue."""
+        if order.symbol not in self.bids:
+            self.bids[order.symbol] = []
+            self.asks[order.symbol] = []
+
+        if order.side == OrderSide.BUY:
+            # Max-heap for bids (using negative price)
+            heapq.heappush(
+                self.bids[order.symbol], (-order.price, next(self._counter), order)
+            )
+        else:
+            # Min-heap for asks
+            heapq.heappush(
+                self.asks[order.symbol], (order.price, next(self._counter), order)
+            )
 
     def _execute_trade(
         self, order: Order, price: Decimal
     ) -> Tuple[TradeEvent, OrderUpdateEvent]:
         # Fully fill the order
-        trade_qty = order.quantity - order.filled_quantity
         order.filled_quantity = order.quantity
         order.status = OrderStatus.FILLED
 
@@ -30,7 +66,7 @@ class MatchingEngine:
             order_id=order.id,
             symbol=order.symbol,
             price=price,
-            quantity=trade_qty,
+            quantity=order.quantity,
         )
 
         update = OrderUpdateEvent(
@@ -47,8 +83,9 @@ class MatchingEngine:
         trades = []
         updates = []
 
-        if order.symbol not in self.pending_orders:
-            self.pending_orders[order.symbol] = []
+        if order.symbol not in self.bids:
+            self.bids[order.symbol] = []
+            self.asks[order.symbol] = []
 
         market_price = self.market_prices.get(order.symbol)
 
@@ -90,8 +127,8 @@ class MatchingEngine:
                 trades.append(trade)
                 updates.append(update)
             else:
-                # Store as pending
-                self.pending_orders[order.symbol].append(order)
+                # Store in priority queue
+                self._add_to_book(order)
                 updates.append(
                     OrderUpdateEvent(
                         order_id=order.id,
@@ -111,28 +148,38 @@ class MatchingEngine:
         # Update current price
         self.market_prices[symbol] = MarketPrice(bid=bid, ask=ask)
 
-        if symbol not in self.pending_orders:
+        if symbol not in self.bids:
             return trades, updates
 
-        remaining_orders = []
-        for order in self.pending_orders[symbol]:
-            crossed = False
-            exec_price = Decimal("0")
+        bids_heap = self.bids[symbol]
+        asks_heap = self.asks[symbol]
 
-            if order.side == OrderSide.BUY and order.price >= ask:
-                crossed = True
-                exec_price = ask
-            elif order.side == OrderSide.SELL and order.price <= bid:
-                crossed = True
-                exec_price = bid
-
-            if crossed:
-                trade, update = self._execute_trade(order, exec_price)
+        # Match pending BUY orders against the new ASK price
+        # We want to match buyers who are willing to pay >= current ask
+        while bids_heap:
+            neg_price, _, order = bids_heap[0]
+            if -neg_price >= ask:
+                # Crossed! Pop from heap and execute
+                heapq.heappop(bids_heap)
+                trade, update = self._execute_trade(order, ask)
                 trades.append(trade)
                 updates.append(update)
             else:
-                remaining_orders.append(order)
+                # Top of heap doesn't match -> the rest won't match either
+                break
 
-        self.pending_orders[symbol] = remaining_orders
+        # Match pending SELL orders against the new BID price
+        # We want to match sellers who are willing to sell <= current bid
+        while asks_heap:
+            price, _, order = asks_heap[0]
+            if price <= bid:
+                # Crossed! Pop from heap and execute
+                heapq.heappop(asks_heap)
+                trade, update = self._execute_trade(order, bid)
+                trades.append(trade)
+                updates.append(update)
+            else:
+                # Top of heap doesn't match -> the rest won't match either
+                break
 
         return trades, updates

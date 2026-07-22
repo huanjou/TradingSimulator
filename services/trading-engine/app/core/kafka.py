@@ -3,64 +3,115 @@ from typing import Awaitable, Callable
 
 import orjson
 import structlog
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, ConsumerRebalanceListener
+from opentelemetry import propagate, trace
 
 from .config import settings
 
 logger = structlog.get_logger(__name__)
 
 
-class KafkaApp:
-    def __init__(
-        self,
-        order_handler: Callable[[list[dict]], Awaitable[None]],
-        market_data_handler: Callable[[list[dict]], Awaitable[None]],
-    ):
-        self.order_handler = order_handler
-        self.market_data_handler = market_data_handler
-
-        self.consumer = AIOKafkaConsumer(
-            settings.KAFKA_ORDERS_TOPIC,
-            settings.KAFKA_MARKET_DATA_TOPIC,
-            bootstrap_servers=settings.KAFKA_BROKER,
-            group_id="trading-engine-group",
-            auto_offset_reset="earliest",
-        )
+class KafkaPublisher:
+    def __init__(self):
         self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BROKER,
             linger_ms=5,
         )
 
     async def start(self):
-        await self.consumer.start()
         await self.producer.start()
+
+    async def stop(self):
+        await self.producer.stop()
+
+    async def publish(self, topic: str, data: bytes, key: bytes | None = None):
+        headers_dict = {}
+        propagate.inject(headers_dict)
+        kafka_headers = [(k, v.encode("utf-8")) for k, v in headers_dict.items()]
+
+        return await self.producer.send(topic, data, key=key, headers=kafka_headers)
+
+
+class SeekListener(ConsumerRebalanceListener):
+    def __init__(self, consumer, initial_offsets):
+        self.consumer = consumer
+        self.initial_offsets = initial_offsets or {}
+
+    async def on_partitions_revoked(self, revoked):
+        pass
+
+    async def on_partitions_assigned(self, assigned):
+        for tp in assigned:
+            topic = tp.topic
+            partition = str(tp.partition)
+            if (
+                topic in self.initial_offsets
+                and partition in self.initial_offsets[topic]
+            ):
+                seek_offset = self.initial_offsets[topic][partition] + 1
+                self.consumer.seek(tp, seek_offset)
+                logger.info(
+                    "seek_to_snapshot_offset",
+                    topic=topic,
+                    partition=partition,
+                    offset=seek_offset,
+                )
+
+
+class KafkaConsumerRunner:
+    def __init__(
+        self,
+        order_handler: Callable[[list[dict]], Awaitable[None]],
+        market_data_handler: Callable[[list[dict]], Awaitable[None]],
+        initial_offsets: dict = None,
+    ):
+        self.order_handler = order_handler
+        self.market_data_handler = market_data_handler
+        self.initial_offsets = initial_offsets or {}
+        # Deep copy to maintain state
+        self.current_offsets = {
+            t: {p: o for p, o in parts.items()}
+            for t, parts in self.initial_offsets.items()
+        }
+
+        self.consumer = AIOKafkaConsumer(
+            bootstrap_servers=settings.KAFKA_BROKER,
+            group_id="trading-engine-group",
+            auto_offset_reset="earliest",
+            enable_auto_commit=False,  # Explicitly disable to avoid data loss
+        )
+        self.consumer.subscribe(
+            [settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC],
+            listener=SeekListener(self.consumer, self.initial_offsets),
+        )
+
+    async def start(self):
+        await self.consumer.start()
         logger.info(
-            "kafka_started",
+            "kafka_consumer_started",
             topics=[settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC],
         )
 
         try:
             while True:
-                # getmany returns dict: {TopicPartition: [ConsumerRecord, ...]}
-                data = await self.consumer.getmany(timeout_ms=100, max_records=500)
+                # Reduce timeout from 100ms to 1ms for ultra-low latency,
+                # but keep batching if high throughput arrives instantly.
+                data = await self.consumer.getmany(timeout_ms=1, max_records=500)
                 if not data:
                     continue
 
-                for _, messages in data.items():
-                    await self._process_batch(messages)
+                for topic_partition, messages in data.items():
+                    await self._process_batch(topic_partition, messages)
         finally:
             await self.stop()
 
     async def stop(self):
         await self.consumer.stop()
-        await self.producer.stop()
-        logger.info("kafka_stopped")
+        logger.info("kafka_consumer_stopped")
 
-    async def _process_batch(self, messages: list):
+    async def _process_batch(self, topic_partition, messages: list):
         if not messages:
             return
-
-        from opentelemetry import propagate, trace
 
         tracer = trace.get_tracer(__name__)
 
@@ -74,7 +125,7 @@ class KafkaApp:
                 if span_context.is_valid:
                     links.append(trace.Link(span_context))
 
-        topic = messages[0].topic
+        topic = topic_partition.topic
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
             batch_id=str(uuid.uuid4()),
@@ -86,7 +137,24 @@ class KafkaApp:
             f"process_batch {topic}", links=links, kind=trace.SpanKind.CONSUMER
         ):
             try:
-                batch_data = [orjson.loads(msg.value) for msg in messages]
+                # Safe parsing to avoid poisoning the whole batch
+                batch_data = []
+                for msg in messages:
+                    try:
+                        batch_data.append(orjson.loads(msg.value))
+                    except Exception as e:
+                        logger.error(
+                            "message_parsing_failed", error=str(e), offset=msg.offset
+                        )
+                        continue
+
+                if not batch_data:
+                    # All messages were invalid, commit and move on
+                    await self.consumer.commit(
+                        {topic_partition: messages[-1].offset + 1}
+                    )
+                    return
+
                 logger.info("processing_batch", size=len(batch_data))
 
                 if topic == settings.KAFKA_ORDERS_TOPIC:
@@ -95,15 +163,18 @@ class KafkaApp:
                     await self.market_data_handler(batch_data)
                 else:
                     logger.warning("unknown_topic_in_batch", topic=topic)
+
+                # Manually commit offset after business logic succeeds
+                await self.consumer.commit({topic_partition: messages[-1].offset + 1})
+
+                # Update current_offsets for snapshotting
+                topic_name = topic_partition.topic
+                part_id = str(topic_partition.partition)
+                if topic_name not in self.current_offsets:
+                    self.current_offsets[topic_name] = {}
+                self.current_offsets[topic_name][part_id] = messages[-1].offset
+
             except Exception as e:
                 logger.error("batch_processing_failed", error=str(e), exc_info=True)
-
-    async def publish(self, topic: str, data: bytes, key: bytes | None = None):
-        """Helper method to expose producer publish functionality. Returns a Future."""
-        from opentelemetry import propagate
-
-        headers_dict = {}
-        propagate.inject(headers_dict)
-        kafka_headers = [(k, v.encode("utf-8")) for k, v in headers_dict.items()]
-
-        return await self.producer.send(topic, data, key=key, headers=kafka_headers)
+                # Re-raise so the consumer crashes instead of losing the batch
+                raise

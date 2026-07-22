@@ -23,13 +23,16 @@ dependencies = [
     "opentelemetry-exporter-otlp (>=1.24.0,<2.0.0)",
     "orjson (>=3.11.9,<4.0.0)",
     "lz4 (>=4.4.5,<5.0.0)",
-    "httpx (>=0.28.1,<0.29.0)"
+    "httpx (>=0.28.1,<0.29.0)",
+    "redis (>=8.0.1,<9.0.0)",
+    "opentelemetry-exporter-prometheus (>=0.65b0,<0.66)"
 ]
 
 [dependency-groups]
 dev = [
     "pytest (>=9.1.1,<10.0.0)",
-    "pytest-asyncio (>=1.4.0,<2.0.0)"
+    "pytest-asyncio (>=1.4.0,<2.0.0)",
+    "fakeredis (>=2.36.2,<3.0.0)"
 ]
 
 [build-system]
