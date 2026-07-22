@@ -29,7 +29,7 @@ async def get_password_hash(password: str) -> str:
 
 
 def create_access_token(
-    subject: str | Any, expires_delta: timedelta | None = None
+    subject: str | Any, expires_delta: timedelta | None = None, role: str = "user"
 ) -> str:
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -37,7 +37,7 @@ def create_access_token(
         expire = datetime.utcnow() + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
-    to_encode = {"exp": expire, "sub": str(subject)}
+    to_encode = {"exp": expire, "sub": str(subject), "role": role}
     encoded_jwt = jwt.encode(
         to_encode,
         settings.JWT_SECRET.get_secret_value(),

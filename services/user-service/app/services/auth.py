@@ -37,9 +37,11 @@ async def login_user_service(db: AsyncSession, user_in: UserLogin) -> dict:
 
     # Set token expiry based on remember_me flag
     expires_delta = timedelta(days=30) if user_in.remember_me else None
+    role = "admin" if user.is_superuser else "user"
     access_token = create_access_token(
         subject=str(user.id),
         expires_delta=expires_delta,
+        role=role,
     )
     csrf_token = secrets.token_urlsafe(32)
 

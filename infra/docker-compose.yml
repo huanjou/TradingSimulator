@@ -82,8 +82,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: exchange_redis
+    command: redis-server --save 60 1 --loglevel warning
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - exchange_net
     healthcheck:
@@ -241,6 +244,8 @@ services:
       - ENV=${APP_ENV:-development}
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    command: >
+      sh -c "python -m app.cli seed-symbols && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     volumes:
       - ../services/api-gateway:/app
     depends_on:
@@ -391,6 +396,10 @@ services:
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
       - ENVIRONMENT=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@admin.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+    command: >
+      sh -c "python -m app.cli create-superuser && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     depends_on:
       postgres-primary:
         condition: service_healthy
@@ -423,5 +432,6 @@ volumes:
   pg_primary_data:
   pg_replica_data:
   kafka_data:
+  redis_data:
   prometheus_data:
   grafana_data:
