@@ -5,12 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 class TradeRepository:
     async def get_by_order_id(
-        self, session: AsyncSession, order_id: str
+        self, session: AsyncSession, order_id: str, limit: int = 50, offset: int = 0
     ) -> list[Trade]:
         stmt = (
             select(Trade)
             .where(Trade.order_id == order_id)
             .order_by(Trade.timestamp.desc())
+            .offset(offset)
+            .limit(limit)
         )
         result = await session.execute(stmt)
         return result.scalars().all()
