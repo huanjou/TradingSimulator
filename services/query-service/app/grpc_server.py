@@ -4,6 +4,8 @@ import grpc
 import structlog
 from app.db.session import AsyncSessionLocal
 from app.grpc_stubs import orders_pb2, orders_pb2_grpc
+from app.repositories.order import OrderRepository
+from app.repositories.trade import trade_repo
 from app.services.order_service import get_order_by_id
 
 logger = structlog.get_logger(__name__)
@@ -23,7 +25,8 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
 
         try:
             async with AsyncSessionLocal() as db_session:
-                order = await get_order_by_id(db_session, order_id)
+                repo = OrderRepository(db_session)
+                order = await get_order_by_id(repo, order_id)
                 if not order:
                     logger.warning("order_not_found")
                     context.set_code(grpc.StatusCode.NOT_FOUND)
@@ -38,14 +41,10 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                     side=order.side,
                     order_type=order.order_type,
                     quantity=order.quantity,
-                    price=order.price,
+                    price=order.price if order.price is not None else 0.0,
                     status=order.status,
-                    created_at=order.created_at.isoformat()
-                    if getattr(order, "created_at", None)
-                    else "",
-                    updated_at=order.updated_at.isoformat()
-                    if getattr(order, "updated_at", None)
-                    else "",
+                    created_at=order.created_at.isoformat() if order.created_at else "",
+                    updated_at=order.updated_at.isoformat() if order.updated_at else "",
                 )
         except Exception as e:
             logger.error("grpc_request_failed", error=str(e), exc_info=True)
@@ -57,6 +56,8 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
         self, request: orders_pb2.GetTradesRequest, context: grpc.aio.ServicerContext
     ) -> orders_pb2.GetTradesResponse:
         order_id = request.order_id
+        limit = request.limit if request.limit > 0 else 50
+        offset = request.offset if request.offset >= 0 else 0
 
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
@@ -65,10 +66,13 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
         logger.info("grpc_get_trades_request_received")
 
         try:
-            from app.repositories.trade import trade_repo
-
             async with AsyncSessionLocal() as db_session:
-                trades = await trade_repo.get_by_order_id(db_session, order_id)
+                trades = await trade_repo.get_by_order_id(
+                    db_session,
+                    order_id,
+                    limit,
+                    offset,
+                )
                 logger.info("trades_fetched", count=len(trades))
                 return orders_pb2.GetTradesResponse(
                     trades=[
@@ -78,15 +82,17 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                             symbol=t.symbol,
                             price=t.price,
                             quantity=t.quantity,
-                            timestamp=t.timestamp,
+                            timestamp=t.timestamp.isoformat()
+                            if hasattr(t.timestamp, "isoformat")
+                            else str(t.timestamp),
                         )
                         for t in trades
                     ]
                 )
         except Exception as e:
-            logger.error("grpc_get_trades_failed", error=str(e), exc_info=True)
+            logger.error("get_trades_error", error=str(e), exc_info=True)
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
+            context.set_details("Internal server error")
             return orders_pb2.GetTradesResponse()
 
     async def GetOrdersByUser(
@@ -105,8 +111,6 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
         logger.info("grpc_get_orders_by_user_request_received")
 
         try:
-            from app.repositories.order import OrderRepository
-
             async with AsyncSessionLocal() as db_session:
                 repo = OrderRepository(db_session)
                 orders = await repo.get_by_user_id(user_id, limit, offset)
@@ -121,14 +125,10 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                             side=o.side,
                             order_type=o.order_type,
                             quantity=o.quantity,
-                            price=o.price,
+                            price=o.price if o.price is not None else 0.0,
                             status=o.status,
-                            created_at=o.created_at.isoformat()
-                            if getattr(o, "created_at", None)
-                            else "",
-                            updated_at=o.updated_at.isoformat()
-                            if getattr(o, "updated_at", None)
-                            else "",
+                            created_at=o.created_at.isoformat() if o.created_at else "",
+                            updated_at=o.updated_at.isoformat() if o.updated_at else "",
                         )
                         for o in orders
                     ]
@@ -149,4 +149,4 @@ async def serve_grpc():
     server.add_insecure_port(port)
     logger.info("grpc_server_started", port=port)
     await server.start()
-    await server.wait_for_termination()
+    return server

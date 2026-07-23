@@ -2,6 +2,7 @@ import uuid
 
 import structlog
 from app.db.session import get_db, get_primary_db
+from app.repositories.order import OrderRepository
 from app.services.order_service import get_order_by_id, get_pending_orders
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,8 @@ async def get_all_pending_orders(db: AsyncSession = Depends(get_primary_db)):
     Get all pending orders for state recovery.
     """
     logger.info("fetching_pending_orders")
-    orders = await get_pending_orders(db)
+    repo = OrderRepository(db)
+    orders = await get_pending_orders(repo)
     return orders
 
 
@@ -31,7 +33,8 @@ async def get_order(order_id: str, db: AsyncSession = Depends(get_db)):
     )
     logger.info("http_request_received")
 
-    order = await get_order_by_id(db, order_id)
+    repo = OrderRepository(db)
+    order = await get_order_by_id(repo, order_id)
     if not order:
         logger.warning("order_not_found")
         raise HTTPException(status_code=404, detail="Order not found")
