@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.stream import router as stream_router
 from app.core.config import settings
+from app.core.telemetry import setup_opentelemetry
 from app.services.kafka_streamer import kafka_streamer
 
 logger = structlog.get_logger(__name__)
@@ -28,6 +29,8 @@ app = FastAPI(
     version=settings.VERSION,
     lifespan=lifespan,
 )
+
+setup_opentelemetry(app)
 
 app.add_middleware(
     CORSMiddleware,
