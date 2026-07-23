@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import asynccontextmanager
 
 import structlog
@@ -15,14 +14,10 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Start gRPC server in the background
-    grpc_task = asyncio.create_task(serve_grpc())
+    grpc_server = await serve_grpc()
     yield
-    # Stop gRPC server? (In production we should gracefully shut down)
-    grpc_task.cancel()
-    try:
-        await grpc_task
-    except asyncio.CancelledError:
-        pass
+    # Stop gRPC server gracefully
+    await grpc_server.stop(grace=5)
 
 
 app = FastAPI(title="Query Service", version="0.1.0", lifespan=lifespan)
