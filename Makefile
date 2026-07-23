@@ -16,13 +16,14 @@ logs:
 	cd infra && docker compose logs -f
 
 test: test-clean
-	cd infra && docker compose -p test_env -f docker-compose.test.yml up --build -d postgres-primary postgres-replica redis test-kafka trading-engine ledger-writer query-service market-data
+	cd infra && docker compose -p test_env -f docker-compose.test.yml up --build -d postgres-primary postgres-replica redis test-kafka trading-engine ledger-writer query-service market-data cache-writer
 	python -c "import time; time.sleep(10)"
-	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-api-gateway || (make test-clean && exit 1)
-	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-trading-engine || (make test-clean && exit 1)
-	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-ledger-writer || (make test-clean && exit 1)
-	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-query-service || (make test-clean && exit 1)
-	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-market-data || (make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-api-gateway || (cd .. && make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-trading-engine || (cd .. && make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-ledger-writer || (cd .. && make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-query-service || (cd .. && make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-market-data || (cd .. && make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-cache-writer || (cd .. && make test-clean && exit 1)
 	make test-clean
 
 test-e2e:
@@ -46,6 +47,10 @@ test-query:
 # Быстрый запуск тестов для trading-engine (внутри уже работающего контейнера)
 test-engine:
 	docker exec -e KAFKA_BROKER="kafka:9092" exchange_trading_engine pytest $(ARGS)
+
+# Быстрый запуск тестов для cache-writer (внутри уже работающего контейнера)
+test-cache:
+	docker exec -e KAFKA_BROKER="kafka:9092" -e REDIS_URL="redis://redis:6379/0" exchange_cache_writer pytest $(ARGS)
 
 
 load-test:

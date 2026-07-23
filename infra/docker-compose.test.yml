@@ -195,6 +195,44 @@ services:
     command: >
       bash -c "pytest -v"
 
+  cache-writer:
+    build:
+      context: ../services/cache-writer
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/cache-writer:/app
+
+  test-cache-writer:
+    build:
+      context: ../services/cache-writer
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - REDIS_URL=redis://redis:6379/0
+      - TESTING=1
+      - ENV=test
+    depends_on:
+      redis:
+        condition: service_healthy
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/cache-writer:/app
+    command: >
+      bash -c "pytest -v"
+
   market-data:
     build:
       context: ../services/market-data

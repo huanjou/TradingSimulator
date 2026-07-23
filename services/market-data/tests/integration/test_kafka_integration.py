@@ -98,8 +98,11 @@ async def test_config_consumer_integration(
         test_topic, value=json.dumps(event_dict).encode("utf-8")
     )
 
-    # Wait for the consumer to process the message
-    await asyncio.sleep(2.0)
+    # Wait for the consumer to process the message (with retry)
+    for _ in range(10):
+        if mock_provider.add_symbol.call_count > 0:
+            break
+        await asyncio.sleep(1.0)
 
     # Cancel the loop
     task.cancel()
