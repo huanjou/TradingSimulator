@@ -76,17 +76,4 @@ async def db_session(engine):
     await connection.close()
 
 
-@pytest.fixture(autouse=True)
-def override_session_local(db_session, monkeypatch):
-    class MockSessionManager:
-        def __call__(self, *args, **kwargs):
-            return self
 
-        async def __aenter__(self):
-            return db_session
-
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-    mock_manager = MockSessionManager()
-    monkeypatch.setattr("app.services.processor.AsyncSessionLocal", mock_manager)

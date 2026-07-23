@@ -1,9 +1,18 @@
+import asyncio
 import uuid
 
 import structlog
 from aiokafka import AIOKafkaConsumer
+from opentelemetry import propagate, trace
+
 from app.core.config import get_settings
+from app.db.session import AsyncSessionLocal
+from app.repositories.order import order_repo
+from app.repositories.symbol import symbol_repo
+from app.repositories.trade import trade_repo
 from app.services.processor import process_orders
+
+tracer = trace.get_tracer(__name__)
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)
@@ -40,10 +49,6 @@ async def consume():
             result = await consumer.getmany(timeout_ms=1000, max_records=100)
             for tp, messages in result.items():
                 if messages:
-                    from opentelemetry import propagate, trace
-
-                    tracer = trace.get_tracer(__name__)
-
                     links = []
                     for msg in messages:
                         if msg.headers:
@@ -71,8 +76,38 @@ async def consume():
                         kind=trace.SpanKind.CONSUMER,
                     ):
                         logger.info("processing_batch")
-                        await process_orders(messages, topic=tp.topic)
-                        await consumer.commit({tp: messages[-1].offset + 1})
+
+                        max_retries = 5
+                        base_delay = 1.0
+                        for attempt in range(max_retries):
+                            try:
+                                async with AsyncSessionLocal() as session:
+                                    await process_orders(
+                                        messages,
+                                        session=session,
+                                        order_repo=order_repo,
+                                        trade_repo=trade_repo,
+                                        symbol_repo=symbol_repo,
+                                        topic=tp.topic,
+                                    )
+                                await consumer.commit({tp: messages[-1].offset + 1})
+                                break  # Success, exit retry loop
+                            except Exception as e:
+                                if attempt == max_retries - 1:
+                                    logger.error(
+                                        "max_retries_reached",
+                                        error=str(e),
+                                        exc_info=True,
+                                    )
+                                    raise
+                                delay = base_delay * (2**attempt)
+                                logger.warning(
+                                    "batch_processing_failed_retrying",
+                                    error=str(e),
+                                    attempt=attempt + 1,
+                                    delay=delay,
+                                )
+                                await asyncio.sleep(delay)
 
     finally:
         await consumer.stop()

@@ -1,17 +1,33 @@
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from app.services.processor import process_orders
 
-
 class MockMessage:
-    def __init__(self, value_dict):
-        self.value = json.dumps(value_dict).encode("utf-8")
+    def __init__(self, value_dict=None, raw_value=None):
+        if raw_value is not None:
+            self.value = raw_value
+        else:
+            self.value = json.dumps(value_dict).encode("utf-8")
+
+
+@pytest.fixture
+def mock_repos():
+    return {
+        "order_repo": AsyncMock(),
+        "trade_repo": AsyncMock(),
+        "symbol_repo": AsyncMock()
+    }
+
+
+@pytest.fixture
+def mock_session():
+    return AsyncMock()
 
 
 @pytest.mark.asyncio
-async def test_process_orders_success():
+async def test_process_orders_success(mock_session, mock_repos):
     messages = [
         MockMessage(
             {
@@ -27,20 +43,15 @@ async def test_process_orders_success():
         )
     ]
 
-    with patch("app.services.processor.AsyncSessionLocal") as mock_session_maker:
-        mock_session = AsyncMock()
-        # Async context manager mock
-        mock_session_maker.return_value.__aenter__.return_value = mock_session
+    await process_orders(messages, session=mock_session, **mock_repos)
 
-        await process_orders(messages)
-
-        # Assertions
-        assert mock_session.execute.call_count == 2  # 1 for user, 1 for order
-        mock_session.commit.assert_called_once()
+    # Assertions
+    mock_repos["order_repo"].upsert_bulk.assert_called_once()
+    mock_session.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_process_orders_db_failure():
+async def test_process_orders_db_failure(mock_session, mock_repos):
     messages = [
         MockMessage(
             {
@@ -56,21 +67,16 @@ async def test_process_orders_db_failure():
         )
     ]
 
-    with patch("app.services.processor.AsyncSessionLocal") as mock_session_maker:
-        mock_session = AsyncMock()
-        mock_session.execute.side_effect = Exception("DB Connection Failed")
-        mock_session_maker.return_value.__aenter__.return_value = mock_session
+    mock_session.commit.side_effect = Exception("DB Connection Failed")
 
-        # We expect the exception to be raised, not swallowed
-        with pytest.raises(Exception, match="DB Connection Failed"):
-            await process_orders(messages, topic="orders")
+    with pytest.raises(Exception, match="DB Connection Failed"):
+        await process_orders(messages, session=mock_session, topic="orders", **mock_repos)
 
-        mock_session.commit.assert_not_called()
-        mock_session.rollback.assert_called_once()
+    mock_session.rollback.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_process_orders_update_success():
+async def test_process_orders_update_success(mock_session, mock_repos):
     messages = [
         MockMessage(
             {
@@ -81,12 +87,43 @@ async def test_process_orders_update_success():
         )
     ]
 
-    with patch("app.services.processor.AsyncSessionLocal") as mock_session_maker:
-        mock_session = AsyncMock()
-        mock_session_maker.return_value.__aenter__.return_value = mock_session
+    await process_orders(messages, session=mock_session, topic="order_updates", **mock_repos)
 
-        await process_orders(messages, topic="order_updates")
+    mock_repos["order_repo"].update_status_bulk.assert_called_once()
+    mock_session.commit.assert_called_once()
 
-        # Assertions
-        assert mock_session.execute.call_count == 1  # 1 for order_repo.update_status
-        mock_session.commit.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_process_orders_poison_pill(mock_session, mock_repos):
+    """
+    Test that invalid messages (poison pills) do not crash the batch processing,
+    and valid messages are still processed.
+    """
+    messages = [
+        MockMessage(raw_value=b"NOT VALID JSON"),  # JSONDecodeError
+        MockMessage(
+            {
+                "id": "1049b870-9115-42f0-bc65-bbeaad370d71",
+                "user_id": "597c03a6-14e3-4dd2-aa9c-ec22e74271cf",
+                "symbol": "BTC/USD",
+                "side": "BUY",
+                "type": "MARKET",
+                "quantity": "1.0",
+                "price": "50000",
+                "status": "OPEN",
+            }
+        ),
+        MockMessage(raw_value=b"\"justastring\"")  # TypeError/ValueError (not a dict)
+    ]
+
+    # Should not raise exception
+    await process_orders(messages, session=mock_session, **mock_repos)
+    
+    # Assertions
+    mock_repos["order_repo"].upsert_bulk.assert_called_once()
+    # The batch should contain exactly one valid order
+    args, _ = mock_repos["order_repo"].upsert_bulk.call_args
+    assert len(args[1]) == 1
+    assert args[1][0]["id"] == "1049b870-9115-42f0-bc65-bbeaad370d71"
+    
+    mock_session.commit.assert_called_once()

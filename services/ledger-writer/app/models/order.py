@@ -2,9 +2,8 @@ import enum
 import uuid
 
 from app.db.base_class import Base
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, String
+from sqlalchemy import Column, DateTime, Enum, Float, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 
@@ -30,7 +29,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), nullable=False)
 
     symbol = Column(String, nullable=False, index=True)
     side = Column(Enum(SideChoice), nullable=False)
@@ -45,5 +44,3 @@ class Order(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    user = relationship("User", back_populates="orders")

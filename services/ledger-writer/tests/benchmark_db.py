@@ -40,24 +40,13 @@ async def run_benchmark():
     print(f"Generating and inserting {num_orders} orders to DB...")
 
     # Pre-insert orders so they can be updated
-    insert_user_query = text(
-        "INSERT INTO users (id, email, hashed_password, created_at) VALUES (:id, :email, :hashed_password, now()) ON CONFLICT (id) DO NOTHING"  # noqa: E501
-    )
+
     insert_query = text(
         "INSERT INTO orders (id, user_id, symbol, side, order_type, price, quantity, status, created_at, updated_at) VALUES (:id, :user_id, :symbol, :side, :order_type, :price, :quantity, :status, now(), now())"  # noqa: E501
     )
 
     mock_user_id = str(uuid.uuid4())
     async with engine.begin() as conn:
-        await conn.execute(
-            insert_user_query,
-            {
-                "id": mock_user_id,
-                "email": f"benchmark_{mock_user_id}@test.com",
-                "hashed_password": "dummy",
-            },
-        )
-
         for _ in range(num_orders):
             order_id = str(uuid.uuid4())
             await conn.execute(
