@@ -1,8 +1,7 @@
-import logging
-
+import structlog
 from app.core.redis import redis_client
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def cache_orders_bulk(orders_data: list[dict]):
@@ -28,4 +27,5 @@ async def cache_orders_bulk(orders_data: list[dict]):
         # Execute all commands in a single network round-trip
         await pipeline.execute()
     except Exception as e:
-        logger.error(f"Failed to bulk cache orders: {e}")
+        logger.error("failed_to_bulk_cache_orders", error=str(e), exc_info=True)
+        raise

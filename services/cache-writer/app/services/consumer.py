@@ -18,7 +18,7 @@ async def consume():
         "orders",
         settings.KAFKA_ORDER_UPDATES_TOPIC,
         bootstrap_servers=settings.KAFKA_BROKER,
-        group_id="cache-writer-group",
+        group_id=settings.KAFKA_CONSUMER_GROUP,
         auto_offset_reset="earliest",
         enable_auto_commit=False,
     )

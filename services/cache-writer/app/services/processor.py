@@ -39,7 +39,15 @@ async def process_orders(messages, topic: str = "orders"):
                 continue
 
             # Convert values to str to avoid serialization issues in Redis hashes
-            cache_dict = {k: str(v) if v is not None else "" for k, v in data.items()}
+            cache_dict = {}
+            for k, v in data.items():
+                if v is None:
+                    cache_dict[k] = ""
+                elif isinstance(v, dict | list):
+                    cache_dict[k] = orjson.dumps(v).decode("utf-8")
+                else:
+                    cache_dict[k] = str(v)
+
             cache_dicts.append(cache_dict)
 
         if cache_dicts:

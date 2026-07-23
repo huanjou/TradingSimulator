@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from app.services.consumer import consume
 
 
@@ -15,10 +16,12 @@ async def test_consumer_fatal_error_no_commit():
     class MockMessage:
         def __init__(self, offset):
             self.offset = offset
+            self.headers = []
 
     class MockTopicPartition:
-        def __init__(self, topic):
+        def __init__(self, topic, partition=0):
             self.topic = topic
+            self.partition = partition
 
     # Mock getmany to return one batch and then block or fail
     mock_consumer.getmany.return_value = {
