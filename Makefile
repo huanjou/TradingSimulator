@@ -16,17 +16,20 @@ logs:
 	cd infra && docker compose logs -f
 
 test: test-clean
-	cd infra && docker compose -f docker-compose.test.yml up --build -d postgres-primary postgres-replica redis test-kafka trading-engine ledger-writer query-service market-data
+	cd infra && docker compose -p test_env -f docker-compose.test.yml up --build -d postgres-primary postgres-replica redis test-kafka trading-engine ledger-writer query-service market-data
 	python -c "import time; time.sleep(10)"
-	cd infra && docker compose -f docker-compose.test.yml run --build --rm test-api-gateway || (make test-clean && exit 1)
-	cd infra && docker compose -f docker-compose.test.yml run --build --rm test-trading-engine || (make test-clean && exit 1)
-	cd infra && docker compose -f docker-compose.test.yml run --build --rm test-ledger-writer || (make test-clean && exit 1)
-	cd infra && docker compose -f docker-compose.test.yml run --build --rm test-query-service || (make test-clean && exit 1)
-	cd infra && docker compose -f docker-compose.test.yml run --build --rm test-market-data || (make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-api-gateway || (make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-trading-engine || (make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-ledger-writer || (make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-query-service || (make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-market-data || (make test-clean && exit 1)
 	make test-clean
 
+test-e2e:
+	pytest tests/e2e -v -s
+
 test-clean:
-	cd infra && docker compose -f docker-compose.test.yml down -v
+	cd infra && docker compose -p test_env -f docker-compose.test.yml down -v
 
 # Быстрый запуск тестов для ledger-writer (внутри уже работающего контейнера)
 test-ledger:
