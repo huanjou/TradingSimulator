@@ -26,6 +26,7 @@ async def test_order_repository_get_by_id_found(db_session):
     assert result.id == str(order.id)
     assert result.status == "PENDING"
     assert result.symbol == order.symbol
+    assert result.created_at is not None
 
 
 @pytest.mark.asyncio

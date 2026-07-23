@@ -30,6 +30,8 @@ class OrderRepository:
             status=order_model.status.value
             if hasattr(order_model.status, "value")
             else order_model.status,
+            created_at=order_model.created_at,
+            updated_at=order_model.updated_at,
         )
 
     async def get_pending_orders(self) -> list[OrderEntity]:
@@ -52,6 +54,8 @@ class OrderRepository:
                 status=order_model.status.value
                 if hasattr(order_model.status, "value")
                 else order_model.status,
+                created_at=order_model.created_at,
+                updated_at=order_model.updated_at,
             )
             for order_model in order_models
         ]
@@ -84,6 +88,8 @@ class OrderRepository:
                 status=order_model.status.value
                 if hasattr(order_model.status, "value")
                 else order_model.status,
+                created_at=order_model.created_at,
+                updated_at=order_model.updated_at,
             )
             for order_model in order_models
         ]

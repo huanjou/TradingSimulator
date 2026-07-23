@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -10,3 +12,5 @@ class OrderEntity(BaseModel):
     quantity: float
     status: str
     price: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
