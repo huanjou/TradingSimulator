@@ -14,3 +14,8 @@ class MarketDataProvider(ABC):
     async def add_symbol(self, symbol: str):
         """Dynamically add a symbol to the existing stream."""
         pass
+
+    @abstractmethod
+    async def close(self):
+        """Gracefully close the provider."""
+        pass

@@ -28,7 +28,7 @@ async def consume_system_events(
             await asyncio.sleep(5)
     else:
         logger.error("Could not connect to Kafka for config consumer")
-        return
+        raise RuntimeError("Could not connect to Kafka for config consumer")
 
     try:
         async for msg in consumer:

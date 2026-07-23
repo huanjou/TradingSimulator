@@ -20,29 +20,36 @@ async def main():
     await publisher.start()
 
     while True:
+        provider = None
+        consumer = None
         try:
-            # We initialize the provider inside the loop so that if it crashes completely,  # noqa: E501
+            # We initialize the provider inside the loop
+            # so that if it crashes completely,
             # we can fetch fresh config and restart it
-            provider = get_provider()
+            provider = await get_provider()
             consumer = get_config_consumer()
 
-            consumer_task = asyncio.create_task(
-                consume_system_events(consumer, provider)
-            )
+            async def run_price_stream(current_provider):
+                async for event in current_provider.stream_prices():
+                    await publisher.publish(event)
 
-            async for event in provider.stream_prices():
-                await publisher.publish(event)
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(consume_system_events(consumer, provider))
+                tg.create_task(run_price_stream(provider))
 
         except asyncio.CancelledError:
             logger.info("Service shutting down gracefully")
-            consumer_task.cancel()
             break
         except Exception as e:
             logger.error(
                 "Unhandled error in main loop. Restarting in 5s...", error=str(e)
             )
-            consumer_task.cancel()
             await asyncio.sleep(5)
+        finally:
+            if provider:
+                await provider.close()
+            if consumer:
+                await consumer.stop()
 
     await publisher.stop()
 

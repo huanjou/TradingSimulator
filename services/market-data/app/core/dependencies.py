@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-import requests
+import httpx
 import structlog
 
 if TYPE_CHECKING:
@@ -12,16 +12,17 @@ from app.providers.binance import BinanceMarketDataProvider
 logger = structlog.get_logger(__name__)
 
 
-def fetch_config() -> list[str]:
+async def fetch_config() -> list[str]:
     """Fetches active symbols from query-service, falls back to ENV"""
     try:
         url = f"{settings.QUERY_SERVICE_URL.rstrip('/')}/api/v1/symbols"
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-        data = response.json()
-        symbols = [s["name"] for s in data if s["is_active"]]
-        logger.info("Fetched symbols from query-service", symbols=symbols)
-        return symbols
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+            symbols = [s["name"] for s in data if s["is_active"]]
+            logger.info("Fetched symbols from query-service", symbols=symbols)
+            return symbols
     except Exception as e:
         logger.warning(
             "Could not fetch symbols from query-service, falling back to ENV",
@@ -30,9 +31,9 @@ def fetch_config() -> list[str]:
         return [s.strip() for s in settings.MARKET_SYMBOLS.split(",") if s.strip()]
 
 
-def get_provider() -> MarketDataProvider:
+async def get_provider() -> MarketDataProvider:
     """Factory method to get the configured market data provider."""
-    symbols = fetch_config()
+    symbols = await fetch_config()
     if not symbols:
         symbols = ["BTC/USD"]
 
