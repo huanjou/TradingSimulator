@@ -3,7 +3,6 @@ import React from 'react';
 import dynamic from 'next/dynamic';
 import OrderEntry from '@/components/OrderEntry';
 import OrderHistory from '@/components/OrderHistory';
-import TradesFeed from '@/components/TradesFeed';
 import Navbar from '@/components/Navbar';
 import { useMarketStore } from '@/store/useMarketStore';
 import { Panel, Group, Separator } from 'react-resizable-panels';
@@ -83,23 +82,9 @@ export default function Dashboard() {
 
           <ResizeHandle orientation="horizontal" />
 
-          {/* Right Column: Order Entry & Trades Feed */}
+          {/* Right Column: Order Entry */}
           <Panel defaultSize={25} minSize={20} className="flex flex-col h-full">
-            <Group orientation="vertical">
-              <Panel defaultSize={40} minSize={30} className="h-full">
-                <OrderEntry />
-              </Panel>
-
-              <ResizeHandle orientation="vertical" />
-
-              <Panel
-                defaultSize={60}
-                minSize={20}
-                className="h-full bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
-              >
-                <TradesFeed />
-              </Panel>
-            </Group>
+            <OrderEntry />
           </Panel>
         </Group>
       </div>

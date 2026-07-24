@@ -9,10 +9,34 @@ import Decimal from 'decimal.js';
 
 export default function OrderEntry() {
   const { user } = useAuthStore();
-  const { symbol, refreshOrders, currentPrice } = useMarketStore();
+  const { symbol, refreshOrders, currentPrice, setCurrentPrice } = useMarketStore();
   const [quantity, setQuantity] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    setCurrentPrice(null);
+    const url = `/api/v1/stream?symbol=${encodeURIComponent(symbol)}`;
+    const sse = new EventSource(url);
+
+    sse.addEventListener('price', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.symbol && data.bid_price !== undefined) {
+          const tradePrice = (data.bid_price + data.ask_price) / 2;
+          setCurrentPrice(tradePrice);
+        }
+      } catch (err) {
+        console.error('Failed to parse SSE data', err);
+      }
+    });
+
+    sse.onerror = (err) => {
+      console.error('SSE error', err);
+    };
+
+    return () => sse.close();
+  }, [symbol, setCurrentPrice]);
 
   const submitOrder = async (side: 'BUY' | 'SELL') => {
     let parsedQuantity: number;
