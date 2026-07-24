@@ -2,18 +2,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TrendingUp, LogOut, Search } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useMarketStore } from '@/store/useMarketStore';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import api from '@/lib/axios';
 import { useRouter, usePathname } from 'next/navigation';
 
-export default function Navbar({
-  currentSymbol,
-  onSymbolSelect,
-}: {
-  currentSymbol?: string;
-  onSymbolSelect?: (s: string) => void;
-}) {
+export default function Navbar() {
   const { user, logout } = useAuthStore();
+  const setSymbol = useMarketStore((s) => s.setSymbol);
+
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
   const [searchResults, setSearchResults] = useState<{ name: string; is_active: boolean }[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const router = useRouter();
@@ -31,9 +31,9 @@ export default function Navbar({
   }, []);
 
   useEffect(() => {
-    if (searchQuery.trim().length > 0) {
+    if (debouncedSearch.trim().length > 0) {
       api
-        .get(`/api/v1/symbols?q=${searchQuery}&limit=5`)
+        .get(`/api/v1/symbols?q=${debouncedSearch}&limit=5`)
         .then((res) => {
           setSearchResults(res.data);
           setIsSearchOpen(true);
@@ -43,14 +43,13 @@ export default function Navbar({
       setSearchResults([]);
       setIsSearchOpen(false);
     }
-  }, [searchQuery]);
+  }, [debouncedSearch]);
 
   const handleSelect = (symbol: string) => {
     setSearchQuery('');
     setIsSearchOpen(false);
-    if (onSymbolSelect) {
-      onSymbolSelect(symbol);
-    }
+    setSymbol(symbol);
+
     // Navigate to dashboard if not on it
     if (pathname !== '/') {
       router.push(`/?symbol=${symbol}`);

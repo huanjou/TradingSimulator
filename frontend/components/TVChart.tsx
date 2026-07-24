@@ -1,14 +1,15 @@
 'use client';
 import React, { memo } from 'react';
 import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
+import { useMarketStore } from '@/store/useMarketStore';
 
 interface TVChartProps {
-  symbol?: string; // e.g. "BINANCE:BTCUSD" or "BTC/USD"
   theme?: 'light' | 'dark';
-  currentTrade?: { price: number; timestamp: string } | null;
 }
 
-const TVChart: React.FC<TVChartProps> = ({ symbol = 'BTC/USD', theme = 'dark', currentTrade }) => {
+const TVChart: React.FC<TVChartProps> = ({ theme = 'dark' }) => {
+  const symbol = useMarketStore((s) => s.symbol);
+
   // Convert symbol formats to Binance format for TradingView
   const getTradingViewSymbol = (sym: string) => {
     let clean = sym.replace('BINANCE:', '').replace('/', '');

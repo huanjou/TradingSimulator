@@ -1,10 +1,17 @@
 import { createStore, useStore } from 'zustand';
 import { createContext, useContext } from 'react';
+import axios, { AxiosError } from 'axios';
 import api from '../lib/axios';
 
 export interface User {
   id: string;
   email: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password?: string;
+  [key: string]: any;
 }
 
 export interface AuthState {
@@ -14,8 +21,8 @@ export interface AuthState {
   error: string | null;
 
   checkAuth: () => Promise<void>;
-  login: (credentials: any) => Promise<void>;
-  register: (credentials: any) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<void>;
+  register: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -49,8 +56,12 @@ export const createAuthStore = (initialProps?: Partial<AuthState>) => {
         // After login, fetch user info
         const response = await api.get('/api/v1/users/me');
         set({ user: response.data, isAuthenticated: true });
-      } catch (error: any) {
-        set({ error: error.response?.data?.detail || 'Login failed' });
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+          set({ error: error.response?.data?.detail || 'Login failed' });
+        } else {
+          set({ error: 'An unexpected error occurred during login' });
+        }
         throw error;
       }
     },
@@ -63,8 +74,12 @@ export const createAuthStore = (initialProps?: Partial<AuthState>) => {
         await api.post('/api/v1/auth/login', credentials);
         const response = await api.get('/api/v1/users/me');
         set({ user: response.data, isAuthenticated: true });
-      } catch (error: any) {
-        set({ error: error.response?.data?.detail || 'Registration failed' });
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+          set({ error: error.response?.data?.detail || 'Registration failed' });
+        } else {
+          set({ error: 'An unexpected error occurred during registration' });
+        }
         throw error;
       }
     },
@@ -90,5 +105,6 @@ export function useAuthStore<T>(selector?: (state: AuthState) => T): T | AuthSta
   if (!store) {
     throw new Error('useAuthStore must be used within an AuthStoreContext.Provider');
   }
-  return useStore(store, selector as any);
+  // If selector is provided, use it, otherwise return the whole store
+  return useStore(store, selector || ((state) => state as unknown as T));
 }

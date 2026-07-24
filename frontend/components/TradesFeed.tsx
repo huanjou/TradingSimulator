@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { format } from 'date-fns';
+import { useMarketStore } from '@/store/useMarketStore';
 
 interface TradeEvent {
   event_type: string;
@@ -9,14 +10,35 @@ interface TradeEvent {
   timestamp: string;
 }
 
-interface TradesFeedProps {
-  symbol: string;
-  onTradeUpdate?: (trade: { price: number; timestamp: string }) => void;
-}
+export default function TradesFeed() {
+  const symbol = useMarketStore((s) => s.symbol);
+  const setCurrentPrice = useMarketStore((s) => s.setCurrentPrice);
 
-export default function TradesFeed({ symbol, onTradeUpdate }: TradesFeedProps) {
   const [trades, setTrades] = useState<TradeEvent[]>([]);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const tradesBufferRef = useRef<TradeEvent[]>([]);
+
+  useEffect(() => {
+    // Flush buffer to state every 200ms
+    const interval = setInterval(() => {
+      if (tradesBufferRef.current.length > 0) {
+        setTrades((prev) => {
+          const updated = [...tradesBufferRef.current, ...prev].slice(0, 50);
+          return updated;
+        });
+
+        // Update the current price in the global store with the latest trade price
+        const latestTrade = tradesBufferRef.current[0];
+        if (latestTrade) {
+          setCurrentPrice(latestTrade.price);
+        }
+
+        tradesBufferRef.current = []; // clear buffer
+      }
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [setCurrentPrice]);
 
   useEffect(() => {
     // Close existing connection
@@ -24,7 +46,11 @@ export default function TradesFeed({ symbol, onTradeUpdate }: TradesFeedProps) {
       eventSourceRef.current.close();
     }
 
-    const url = `/api/v1/stream?symbol=${symbol}`;
+    setTrades([]); // clear trades on symbol change
+    tradesBufferRef.current = [];
+    setCurrentPrice(null); // Reset price
+
+    const url = `/api/v1/stream?symbol=${encodeURIComponent(symbol)}`;
     const sse = new EventSource(url);
     eventSourceRef.current = sse;
 
@@ -40,13 +66,8 @@ export default function TradesFeed({ symbol, onTradeUpdate }: TradesFeedProps) {
             timestamp: data.timestamp || new Date().toISOString(),
           };
 
-          setTrades((prev) => {
-            const updated = [tradeData, ...prev].slice(0, 50); // Keep last 50
-            return updated;
-          });
-          if (onTradeUpdate) {
-            onTradeUpdate({ price: tradePrice, timestamp: tradeData.timestamp });
-          }
+          // Push to buffer instead of calling setState
+          tradesBufferRef.current.unshift(tradeData);
         }
       } catch (err) {
         console.error('Failed to parse SSE data', err);
@@ -55,17 +76,13 @@ export default function TradesFeed({ symbol, onTradeUpdate }: TradesFeedProps) {
 
     sse.onerror = (error) => {
       console.error('SSE error', error);
-      sse.close();
-      // Simple reconnect logic could go here
-      setTimeout(() => {
-        // trigger reconnect if needed
-      }, 5000);
+      // Removed sse.close() to allow native browser EventSource reconnection
     };
 
     return () => {
       sse.close();
     };
-  }, [symbol]);
+  }, [symbol, setCurrentPrice]);
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 h-full flex flex-col">

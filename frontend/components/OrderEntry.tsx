@@ -1,26 +1,33 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import api from '@/lib/axios';
+import axios from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useMarketStore } from '@/store/useMarketStore';
 import { ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import Decimal from 'decimal.js';
 
-interface OrderEntryProps {
-  symbol: string;
-  currentPrice: number | null;
-  onOrderSubmitted?: () => void;
-}
-
-export default function OrderEntry({ symbol, currentPrice, onOrderSubmitted }: OrderEntryProps) {
+export default function OrderEntry() {
   const { user } = useAuthStore();
+  const { symbol, refreshOrders, currentPrice } = useMarketStore();
   const [quantity, setQuantity] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const submitOrder = async (side: 'BUY' | 'SELL') => {
-    if (!quantity || isNaN(Number(quantity)) || Number(quantity) <= 0) {
+    let parsedQuantity: number;
+    try {
+      const dec = new Decimal(quantity);
+      if (dec.lte(0)) {
+        setError('Quantity must be greater than 0');
+        return;
+      }
+      parsedQuantity = dec.toNumber();
+    } catch (e) {
       setError('Invalid quantity');
       return;
     }
+
     if (!user?.id) {
       setError('User not authenticated');
       return;
@@ -34,19 +41,23 @@ export default function OrderEntry({ symbol, currentPrice, onOrderSubmitted }: O
         symbol,
         side,
         order_type: 'MARKET',
-        quantity: Number(quantity),
+        quantity: parsedQuantity,
       });
       setQuantity('');
-      if (onOrderSubmitted) onOrderSubmitted();
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      if (Array.isArray(detail)) {
-        // FastAPI validation error (list of objects)
-        setError(detail.map((e) => `${e.loc.join('.')}: ${e.msg}`).join(', '));
-      } else if (typeof detail === 'string') {
-        setError(detail);
+      refreshOrders(); // notify order history to refetch
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        const detail = err.response?.data?.detail;
+        if (Array.isArray(detail)) {
+          // FastAPI validation error (list of objects)
+          setError(detail.map((e) => `${e.loc.join('.')}: ${e.msg}`).join(', '));
+        } else if (typeof detail === 'string') {
+          setError(detail);
+        } else {
+          setError('Failed to submit order');
+        }
       } else {
-        setError('Failed to submit order');
+        setError('An unexpected error occurred');
       }
     } finally {
       setLoading(false);

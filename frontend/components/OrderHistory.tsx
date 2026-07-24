@@ -4,6 +4,8 @@ import api from '@/lib/axios';
 import { format } from 'date-fns';
 import { RefreshCw } from 'lucide-react';
 
+import { useMarketStore } from '@/store/useMarketStore';
+
 interface Order {
   id: string;
   symbol: string;
@@ -15,11 +17,8 @@ interface Order {
   created_at: string;
 }
 
-interface OrderHistoryProps {
-  refreshTrigger: number;
-}
-
-export default function OrderHistory({ refreshTrigger }: OrderHistoryProps) {
+export default function OrderHistory() {
+  const refreshTrigger = useMarketStore((s) => s.orderRefreshTrigger);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
