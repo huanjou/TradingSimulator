@@ -15,15 +15,16 @@ def get_streamer(request: Request) -> StreamManager:
 @router.get("/stream")
 async def stream_prices(
     request: Request,
-    symbol: str = Query(..., description="Symbol to subscribe to, e.g., BTCUSDT"),
+    symbol: str = Query(..., description="Symbol to subscribe to, or comma-separated list (e.g., BTC/USD,ETH/USD)"),
     streamer: StreamManager = Depends(get_streamer),
 ) -> EventSourceResponse:
     """
-    SSE endpoint to stream market data for a specific symbol.
+    SSE endpoint to stream market data for a specific symbol or multiple symbols.
     """
 
     async def event_generator():
-        q = streamer.subscribe(symbol)
+        symbols_list = [s.strip() for s in symbol.split(",")]
+        q = streamer.subscribe(symbols_list)
         try:
             while True:
                 if await request.is_disconnected():
@@ -37,6 +38,6 @@ async def stream_prices(
                     # Keep connection alive
                     yield {"event": "ping", "data": "ping"}
         finally:
-            streamer.unsubscribe(symbol, q)
+            streamer.unsubscribe(symbols_list, q)
 
     return EventSourceResponse(event_generator())

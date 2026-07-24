@@ -15,6 +15,52 @@ interface MarketsListProps {
   initialSymbols: SymbolData[];
 }
 
+const PriceCell = ({ price }: { price?: number }) => {
+  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+  const prevPriceRef = useRef<number | undefined>(price);
+
+  useEffect(() => {
+    if (price !== undefined && prevPriceRef.current !== undefined && price !== prevPriceRef.current) {
+      if (price > prevPriceRef.current) {
+        setFlash('up');
+      } else {
+        setFlash('down');
+      }
+      
+      const timer = setTimeout(() => {
+        setFlash(null);
+      }, 300);
+      
+      prevPriceRef.current = price;
+      return () => clearTimeout(timer);
+    }
+    prevPriceRef.current = price;
+  }, [price]);
+
+  if (price === undefined) {
+    return <span className="text-zinc-600 font-mono">--</span>;
+  }
+
+  let colorClass = 'text-zinc-100';
+  let bgClass = 'bg-transparent';
+  
+  if (flash === 'up') {
+    colorClass = 'text-emerald-400';
+    bgClass = 'bg-emerald-500/20';
+  } else if (flash === 'down') {
+    colorClass = 'text-rose-400';
+    bgClass = 'bg-rose-500/20';
+  }
+
+  return (
+    <span 
+      className={`font-mono text-lg font-medium tabular-nums px-2 py-1 rounded transition-colors duration-500 ${colorClass} ${bgClass}`}
+    >
+      ${price.toFixed(2)}
+    </span>
+  );
+};
+
 export default function MarketsList({ initialSymbols }: MarketsListProps) {
   const [symbols, setSymbols] = useState<SymbolData[]>(initialSymbols);
   const [prices, setPrices] = useState<Record<string, number>>({});
@@ -77,7 +123,10 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
   );
 
   useEffect(() => {
-    const eventSource = new EventSource('/api/v1/stream');
+    if (symbols.length === 0) return;
+
+    const symbolString = symbols.map(s => s.name).join(',');
+    const eventSource = new EventSource(`/api/v1/stream?symbol=${encodeURIComponent(symbolString)}`);
 
     eventSource.addEventListener('price', (e) => {
       try {
@@ -97,7 +146,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
     return () => {
       eventSource.close();
     };
-  }, []);
+  }, [symbols]);
 
   return (
     <div className="min-h-screen bg-black text-zinc-100 font-sans px-4 flex flex-col gap-4 pb-10">
@@ -154,13 +203,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {prices[symbol.name] ? (
-                        <span className="font-mono text-lg font-medium text-zinc-100 tabular-nums">
-                          ${prices[symbol.name].toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-600 font-mono">--</span>
-                      )}
+                      <PriceCell price={prices[symbol.name]} />
                     </td>
                     <td className="px-6 py-4 text-right">
                       {symbol.is_active ? (

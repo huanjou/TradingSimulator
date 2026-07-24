@@ -72,14 +72,20 @@ class StreamManager:
         except Exception as e:
             logger.error("Error listening to Redis", error=str(e), exc_info=True)
 
-    def subscribe(self, symbol: str) -> asyncio.Queue:
+    def subscribe(self, symbols: str | list[str]) -> asyncio.Queue:
         q = asyncio.Queue(maxsize=1000)
-        self.clients[symbol].add(q)
+        if isinstance(symbols, str):
+            symbols = [symbols]
+        for s in symbols:
+            self.clients[s].add(q)
         return q
 
-    def unsubscribe(self, symbol: str, q: asyncio.Queue):
-        if q in self.clients.get(symbol, set()):
-            self.clients[symbol].remove(q)
-            # Cleanup empty sets to avoid memory leaks
-            if not self.clients[symbol]:
-                del self.clients[symbol]
+    def unsubscribe(self, symbols: str | list[str], q: asyncio.Queue):
+        if isinstance(symbols, str):
+            symbols = [symbols]
+        for s in symbols:
+            if q in self.clients.get(s, set()):
+                self.clients[s].remove(q)
+                # Cleanup empty sets to avoid memory leaks
+                if not self.clients[s]:
+                    del self.clients[s]
