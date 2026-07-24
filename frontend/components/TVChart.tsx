@@ -22,6 +22,7 @@ const TVChart: React.FC<TVChartProps> = ({ theme = 'dark' }) => {
   return (
     <div className="w-full h-full relative rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 min-h-0">
       <AdvancedRealTimeChart
+        key={symbol}
         theme={theme}
         symbol={getTradingViewSymbol(symbol)}
         interval="1"
@@ -29,6 +30,7 @@ const TVChart: React.FC<TVChartProps> = ({ theme = 'dark' }) => {
         style="1"
         locale="en"
         enable_publishing={false}
+        allow_symbol_change={false}
         hide_top_toolbar={false}
         hide_side_toolbar={false}
         hide_legend={false}
