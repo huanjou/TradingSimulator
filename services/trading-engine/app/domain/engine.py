@@ -61,6 +61,7 @@ class MatchingEngine:
         # Fully fill the order
         order.filled_quantity = order.quantity
         order.status = OrderStatus.FILLED
+        order.average_fill_price = price
 
         trade = TradeEvent(
             order_id=order.id,
@@ -73,6 +74,7 @@ class MatchingEngine:
             order_id=order.id,
             status=order.status,
             filled_quantity=order.filled_quantity,
+            average_fill_price=order.average_fill_price,
         )
 
         return trade, update

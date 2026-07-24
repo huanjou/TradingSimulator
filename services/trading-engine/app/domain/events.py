@@ -20,3 +20,4 @@ class OrderUpdateEvent(BaseModel):
     order_id: str
     status: OrderStatus
     filled_quantity: Decimal
+    average_fill_price: Decimal | None = None

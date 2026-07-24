@@ -93,3 +93,26 @@ async def get_orders_by_user(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/user/{user_id}/trades",
+    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
+)
+async def get_trades_by_user(
+    user_id: str,
+    request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    current_user_id: str = Depends(get_current_user_id),
+) -> Any:
+    """
+    Get all trades for a specific user.
+    """
+    return await order_query_service.get_trades_by_user(
+        channel=request.app.state.grpc_channel,
+        user_id=user_id,
+        current_user_id=current_user_id,
+        limit=limit,
+        offset=offset,
+    )

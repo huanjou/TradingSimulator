@@ -13,5 +13,6 @@ class OrderEntity(BaseModel):
     filled_quantity: float = 0.0
     status: str
     price: float | None = None
+    average_fill_price: float | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

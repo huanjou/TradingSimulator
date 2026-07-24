@@ -18,6 +18,7 @@ class OrderRepository(BaseRepository[DbOrder]):
             quantity=db_obj.quantity,
             filled_quantity=db_obj.filled_quantity,
             price=db_obj.price,
+            average_fill_price=db_obj.average_fill_price,
             status=db_obj.status.value
             if hasattr(db_obj.status, "value")
             else db_obj.status,
@@ -36,6 +37,7 @@ class OrderRepository(BaseRepository[DbOrder]):
             quantity=obj_in.quantity,
             filled_quantity=obj_in.filled_quantity,
             price=obj_in.price,
+            average_fill_price=obj_in.average_fill_price,
             status=obj_in.status,
         )
         db.add(db_obj)
@@ -59,6 +61,7 @@ class OrderRepository(BaseRepository[DbOrder]):
                 quantity=obj_in.quantity,
                 filled_quantity=obj_in.filled_quantity,
                 price=obj_in.price,
+                average_fill_price=obj_in.average_fill_price,
                 status=obj_in.status,
             )
             .on_conflict_do_update(
@@ -66,6 +69,7 @@ class OrderRepository(BaseRepository[DbOrder]):
                 set_=dict(
                     status=obj_in.status,
                     filled_quantity=obj_in.filled_quantity,
+                    average_fill_price=obj_in.average_fill_price,
                 ),
             )
         )
@@ -82,26 +86,36 @@ class OrderRepository(BaseRepository[DbOrder]):
                 set_=dict(
                     status=insert(DbOrder).excluded.status,
                     filled_quantity=insert(DbOrder).excluded.filled_quantity,
+                    average_fill_price=insert(DbOrder).excluded.average_fill_price,
                 ),
             )
         )
         await db.execute(stmt)
 
     async def update_status(
-        self, db: AsyncSession, order_id: str, status: str, filled_quantity: float
+        self,
+        db: AsyncSession,
+        order_id: str,
+        status: str,
+        filled_quantity: float,
+        average_fill_price: float | None = None,
     ) -> None:
         from sqlalchemy import update
 
         stmt = (
             update(DbOrder)
             .where(DbOrder.id == order_id)
-            .values(status=status, filled_quantity=filled_quantity)
+            .values(
+                status=status,
+                filled_quantity=filled_quantity,
+                average_fill_price=average_fill_price,
+            )
         )
         await db.execute(stmt)
 
     async def update_status_bulk(self, db: AsyncSession, updates: list[dict]) -> None:
         """
-        updates: list of dicts with keys 'id', 'status', 'filled_quantity'
+        updates: list of dicts with keys 'id', 'status', 'filled_quantity', 'average_fill_price'
         """
         if not updates:
             return

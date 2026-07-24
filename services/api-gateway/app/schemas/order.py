@@ -47,5 +47,17 @@ class OrderResponse(OrderBase):
     id: uuid.UUID
     user_id: uuid.UUID
     status: OrderStatusChoice
+    average_fill_price: float | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TradeResponse(BaseModel):
+    id: uuid.UUID
+    order_id: uuid.UUID
+    symbol: str
+    price: float
+    quantity: float
+    timestamp: str
 
     model_config = ConfigDict(from_attributes=True)

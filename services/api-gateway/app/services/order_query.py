@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import grpc
@@ -41,6 +42,9 @@ class OrderQueryService:
                 "status": response.status,
                 "created_at": response.created_at,
                 "updated_at": response.updated_at,
+                "average_fill_price": response.average_fill_price
+                if response.HasField("average_fill_price")
+                else None,
             }
         except grpc.aio.AioRpcError as e:
             logger.error(f"gRPC error calling query-service: {e.details()}")
@@ -75,7 +79,9 @@ class OrderQueryService:
                     "symbol": trade.symbol,
                     "price": trade.price,
                     "quantity": trade.quantity,
-                    "timestamp": trade.timestamp,
+                    "timestamp": datetime.fromtimestamp(
+                        trade.timestamp, tz=timezone.utc
+                    ).isoformat(),
                 }
                 for trade in response.trades
             ]
@@ -121,12 +127,58 @@ class OrderQueryService:
                     "status": order.status,
                     "created_at": order.created_at,
                     "updated_at": order.updated_at,
+                    "average_fill_price": order.average_fill_price
+                    if order.HasField("average_fill_price")
+                    else None,
                 }
                 for order in response.orders
             ]
         except grpc.aio.AioRpcError as e:
             logger.error(
                 f"gRPC error calling query-service GetOrdersByUser: {e.details()}"
+            )
+            raise OrderQueryServiceUnavailableException(
+                "Query service unavailable"
+            ) from e
+
+    @staticmethod
+    async def get_trades_by_user(
+        channel: grpc.aio.Channel,
+        user_id: str,
+        current_user_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        if user_id != "me" and user_id != current_user_id:
+            raise UnauthorizedOrderAccessException(
+                "Not authorized to access these trades"
+            )
+
+        target_user_id = current_user_id if user_id == "me" else user_id
+
+        try:
+            stub = orders_pb2_grpc.OrderQueryServiceStub(channel)
+            req = orders_pb2.GetTradesByUserRequest(
+                user_id=target_user_id, limit=limit, offset=offset
+            )
+            response = await stub.GetTradesByUser(req)
+
+            return [
+                {
+                    "id": trade.id,
+                    "order_id": trade.order_id,
+                    "symbol": trade.symbol,
+                    "price": trade.price,
+                    "quantity": trade.quantity,
+                    "timestamp": datetime.fromtimestamp(
+                        trade.timestamp, tz=timezone.utc
+                    ).isoformat(),
+                }
+                for trade in response.trades
+            ]
+        except grpc.aio.AioRpcError as e:
+            logger.error(
+                f"gRPC error calling query-service GetTradesByUser: {e.details()}"
             )
             raise OrderQueryServiceUnavailableException(
                 "Query service unavailable"

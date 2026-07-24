@@ -1,12 +1,11 @@
 import orjson
 import structlog
-from opentelemetry import metrics
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.utils import is_valid_uuid
 from app.repositories.order import OrderRepository
 from app.repositories.symbol import SymbolRepository
 from app.repositories.trade import TradeRepository
+from opentelemetry import metrics
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -38,7 +37,6 @@ async def process_orders(
         order_updates = {}
         trade_inserts = {}
         system_events = []
-
 
         for msg in messages:
             try:
@@ -87,11 +85,22 @@ async def process_orders(
                 except (ValueError, TypeError):
                     filled_quantity = 0.0
 
+                try:
+                    average_fill_price_raw = data.get("average_fill_price")
+                    average_fill_price = (
+                        float(average_fill_price_raw)
+                        if average_fill_price_raw is not None
+                        else None
+                    )
+                except (ValueError, TypeError):
+                    average_fill_price = None
+
                 if order_id and status and is_valid_uuid(order_id):
                     order_updates[order_id] = {
                         "id": order_id,
                         "status": status,
                         "filled_quantity": filled_quantity,
+                        "average_fill_price": average_fill_price,
                     }
                 else:
                     logger.warning("ignored_order_update_invalid_data", data=data)
@@ -145,6 +154,7 @@ async def process_orders(
                             update_data["id"],
                             update_data["status"],
                             update_data["filled_quantity"],
+                            update_data["average_fill_price"],
                         )
                         await session.commit()
                     except Exception as inner_e:

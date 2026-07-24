@@ -7,6 +7,7 @@ service OrderQueryService {
     rpc GetOrder(GetOrderRequest) returns (OrderResponse);
     rpc GetTrades(GetTradesRequest) returns (GetTradesResponse);
     rpc GetOrdersByUser(GetOrdersByUserRequest) returns (GetOrdersByUserResponse);
+    rpc GetTradesByUser(GetTradesByUserRequest) returns (GetTradesResponse);
 }
 
 // Request containing the ID of the order to fetch
@@ -26,6 +27,7 @@ message OrderResponse {
     string status = 8;
     string created_at = 9;
     string updated_at = 10;
+    optional double average_fill_price = 11;
 }
 
 // Full response for a trade
@@ -56,4 +58,10 @@ message GetOrdersByUserRequest {
 
 message GetOrdersByUserResponse {
     repeated OrderResponse orders = 1;
+}
+
+message GetTradesByUserRequest {
+    string user_id = 1;
+    int32 limit = 2;
+    int32 offset = 3;
 }

@@ -27,6 +27,7 @@ class OrderRepository:
             else order_model.order_type,
             quantity=order_model.quantity,
             price=order_model.price,
+            average_fill_price=order_model.average_fill_price,
             status=order_model.status.value
             if hasattr(order_model.status, "value")
             else order_model.status,
@@ -51,6 +52,7 @@ class OrderRepository:
                 else order_model.order_type,
                 quantity=order_model.quantity,
                 price=order_model.price,
+                average_fill_price=order_model.average_fill_price,
                 status=order_model.status.value
                 if hasattr(order_model.status, "value")
                 else order_model.status,
@@ -85,6 +87,7 @@ class OrderRepository:
                 else order_model.order_type,
                 quantity=order_model.quantity,
                 price=order_model.price,
+                average_fill_price=order_model.average_fill_price,
                 status=order_model.status.value
                 if hasattr(order_model.status, "value")
                 else order_model.status,

@@ -13,8 +13,18 @@ interface Order {
   order_type: string;
   quantity: number;
   price: number | null;
+  average_fill_price?: number;
   status: string;
   created_at: string;
+}
+
+interface Trade {
+  id: string;
+  order_id: string;
+  symbol: string;
+  price: number;
+  quantity: number;
+  timestamp: string;
 }
 
 type TabType = 'open' | 'history' | 'trades';
@@ -22,34 +32,36 @@ type TabType = 'open' | 'history' | 'trades';
 export default function OrderHistory() {
   const refreshTrigger = useMarketStore((s) => s.orderRefreshTrigger);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('trades');
   const [prices, setPrices] = useState<Record<string, number>>({});
 
-  const fetchOrders = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/v1/orders/user/me?limit=50`);
-      setOrders(response.data);
+      const [ordersRes, tradesRes] = await Promise.all([
+        api.get('/api/v1/orders/user/me?limit=50'),
+        api.get('/api/v1/orders/user/me/trades?limit=50'),
+      ]);
+      setOrders(ordersRes.data);
+      setTrades(tradesRes.data);
     } catch (error) {
-      console.error('Failed to fetch orders:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchData();
   }, [refreshTrigger]);
 
-  // Subscribe to SSE for all unique symbols in FILLED orders
+  // Subscribe to SSE for all unique symbols in trades
   useEffect(() => {
-    const completedOrders = orders.filter(
-      (o) => o.status === 'FILLED' || o.status === 'PARTIALLY_FILLED',
-    );
-    if (completedOrders.length === 0) return;
+    if (trades.length === 0) return;
 
-    const uniqueSymbols = Array.from(new Set(completedOrders.map((o) => o.symbol)));
+    const uniqueSymbols = Array.from(new Set(trades.map((t) => t.symbol)));
     const symbolString = uniqueSymbols.join(',');
 
     const eventSource = new EventSource(
@@ -74,16 +86,15 @@ export default function OrderHistory() {
     return () => {
       eventSource.close();
     };
-  }, [orders]);
+  }, [trades]);
 
   const displayedOrders = useMemo(() => {
     if (activeTab === 'open') {
       return orders.filter((o) => o.status === 'PENDING');
     } else if (activeTab === 'history') {
       return orders.filter((o) => o.status !== 'PENDING');
-    } else {
-      return orders.filter((o) => o.status === 'FILLED' || o.status === 'PARTIALLY_FILLED');
     }
+    return [];
   }, [orders, activeTab]);
 
   const getStatusColor = (status: string) => {
@@ -103,13 +114,16 @@ export default function OrderHistory() {
     }
   };
 
-  const calculatePnL = (order: Order) => {
-    if (!order.price) return null;
-    const currentPrice = prices[order.symbol];
+  const calculateTradePnL = (trade: Trade) => {
+    const currentPrice = prices[trade.symbol];
     if (!currentPrice) return null;
 
-    const diff = order.side === 'BUY' ? currentPrice - order.price : order.price - currentPrice;
-    return diff * order.quantity;
+    // Join with order to get side
+    const order = orders.find((o) => o.id === trade.order_id);
+    if (!order) return null;
+
+    const diff = order.side === 'BUY' ? currentPrice - trade.price : trade.price - currentPrice;
+    return diff * trade.quantity;
   };
 
   return (
@@ -148,7 +162,7 @@ export default function OrderHistory() {
           </button>
         </div>
         <button
-          onClick={fetchOrders}
+          onClick={fetchData}
           className="text-zinc-400 hover:text-zinc-100 transition-colors"
           disabled={loading}
         >
@@ -162,8 +176,14 @@ export default function OrderHistory() {
             <tr>
               <th className="py-3 px-2 font-medium">Time</th>
               <th className="py-3 px-2 font-medium">Pair</th>
-              <th className="py-3 px-2 font-medium">Type</th>
-              <th className="py-3 px-2 font-medium text-right">Price</th>
+              {activeTab !== 'trades' && <th className="py-3 px-2 font-medium">Type</th>}
+              {activeTab === 'trades' && <th className="py-3 px-2 font-medium">Side</th>}
+              <th className="py-3 px-2 font-medium text-right">
+                {activeTab === 'trades' ? 'Price' : 'Req. Price'}
+              </th>
+              {activeTab !== 'trades' && (
+                <th className="py-3 px-2 font-medium text-right">Exec. Price</th>
+              )}
               <th className="py-3 px-2 font-medium text-right">Amount</th>
               {activeTab === 'trades' ? (
                 <th className="py-3 px-2 font-medium text-right">PnL</th>
@@ -173,39 +193,44 @@ export default function OrderHistory() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/50">
-            {displayedOrders.length === 0 && !loading ? (
-              <tr>
-                <td colSpan={6} className="text-center py-8 text-zinc-500">
-                  No {activeTab} found
-                </td>
-              </tr>
-            ) : (
-              displayedOrders.map((order) => {
-                const pnl = activeTab === 'trades' ? calculatePnL(order) : null;
+            {activeTab === 'trades' ? (
+              trades.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-zinc-500">
+                    No trades found
+                  </td>
+                </tr>
+              ) : (
+                trades.map((trade) => {
+                  const pnl = calculateTradePnL(trade);
+                  const order = orders.find((o) => o.id === trade.order_id);
+                  const side = order ? order.side : '-';
 
-                return (
-                  <tr key={order.id} className="hover:bg-zinc-800/30 transition-colors">
-                    <td className="py-3 px-2 text-zinc-400 whitespace-nowrap">
-                      {order.created_at
-                        ? format(new Date(order.created_at), 'HH:mm:ss')
-                        : '--:--:--'}
-                    </td>
-                    <td className="py-3 px-2 text-zinc-200 font-medium">{order.symbol}</td>
-                    <td
-                      className={`py-3 px-2 font-semibold ${
-                        order.side === 'BUY' ? 'text-emerald-500' : 'text-rose-500'
-                      }`}
-                    >
-                      {order.side}
-                    </td>
-                    <td className="py-3 px-2 text-zinc-300 text-right font-mono">
-                      {order.price ? `$${order.price.toFixed(2)}` : 'MKT'}
-                    </td>
-                    <td className="py-3 px-2 text-zinc-300 text-right font-mono">
-                      {order.quantity}
-                    </td>
-
-                    {activeTab === 'trades' ? (
+                  return (
+                    <tr key={trade.id} className="hover:bg-zinc-800/30 transition-colors">
+                      <td className="py-3 px-2 text-zinc-400 whitespace-nowrap">
+                        {trade.timestamp
+                          ? format(new Date(trade.timestamp), 'HH:mm:ss')
+                          : '--:--:--'}
+                      </td>
+                      <td className="py-3 px-2 text-zinc-200 font-medium">{trade.symbol}</td>
+                      <td
+                        className={`py-3 px-2 font-semibold ${
+                          side === 'BUY'
+                            ? 'text-emerald-500'
+                            : side === 'SELL'
+                              ? 'text-rose-500'
+                              : 'text-zinc-500'
+                        }`}
+                      >
+                        {side}
+                      </td>
+                      <td className="py-3 px-2 text-zinc-300 text-right font-mono">
+                        ${trade.price.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-2 text-zinc-300 text-right font-mono">
+                        {trade.quantity}
+                      </td>
                       <td
                         className={`py-3 px-2 text-right font-mono font-medium ${
                           pnl !== null
@@ -217,18 +242,44 @@ export default function OrderHistory() {
                       >
                         {pnl !== null ? `${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}` : '--'}
                       </td>
-                    ) : (
-                      <td
-                        className={`py-3 px-2 text-right font-medium ${getStatusColor(
-                          order.status,
-                        )}`}
-                      >
-                        {order.status}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
+                    </tr>
+                  );
+                })
+              )
+            ) : displayedOrders.length === 0 && !loading ? (
+              <tr>
+                <td colSpan={7} className="text-center py-8 text-zinc-500">
+                  No orders found
+                </td>
+              </tr>
+            ) : (
+              displayedOrders.map((order) => (
+                <tr key={order.id} className="hover:bg-zinc-800/30 transition-colors">
+                  <td className="py-3 px-2 text-zinc-400 whitespace-nowrap">
+                    {order.created_at ? format(new Date(order.created_at), 'HH:mm:ss') : '--:--:--'}
+                  </td>
+                  <td className="py-3 px-2 text-zinc-200 font-medium">{order.symbol}</td>
+                  <td
+                    className={`py-3 px-2 font-semibold ${
+                      order.side === 'BUY' ? 'text-emerald-500' : 'text-rose-500'
+                    }`}
+                  >
+                    {order.side}
+                  </td>
+                  <td className="py-3 px-2 text-zinc-300 text-right font-mono">
+                    {order.price ? `$${order.price.toFixed(2)}` : 'MKT'}
+                  </td>
+                  <td className="py-3 px-2 text-zinc-400 text-right font-mono">
+                    {order.average_fill_price ? `$${order.average_fill_price.toFixed(2)}` : '--'}
+                  </td>
+                  <td className="py-3 px-2 text-zinc-300 text-right font-mono">{order.quantity}</td>
+                  <td
+                    className={`py-3 px-2 text-right font-medium ${getStatusColor(order.status)}`}
+                  >
+                    {order.status}
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

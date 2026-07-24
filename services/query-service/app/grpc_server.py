@@ -45,6 +45,9 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                     status=order.status,
                     created_at=order.created_at.isoformat() if order.created_at else "",
                     updated_at=order.updated_at.isoformat() if order.updated_at else "",
+                    average_fill_price=order.average_fill_price
+                    if order.average_fill_price is not None
+                    else 0.0,
                 )
         except Exception as e:
             logger.error("grpc_request_failed", error=str(e), exc_info=True)
@@ -82,9 +85,9 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                             symbol=t.symbol,
                             price=t.price,
                             quantity=t.quantity,
-                            timestamp=t.timestamp.isoformat()
-                            if hasattr(t.timestamp, "isoformat")
-                            else str(t.timestamp),
+                            timestamp=float(t.timestamp)
+                            if t.timestamp is not None
+                            else 0.0,
                         )
                         for t in trades
                     ]
@@ -129,6 +132,9 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                             status=o.status,
                             created_at=o.created_at.isoformat() if o.created_at else "",
                             updated_at=o.updated_at.isoformat() if o.updated_at else "",
+                            average_fill_price=o.average_fill_price
+                            if o.average_fill_price is not None
+                            else 0.0,
                         )
                         for o in orders
                     ]
@@ -138,6 +144,51 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
             return orders_pb2.GetOrdersByUserResponse()
+
+    async def GetTradesByUser(
+        self,
+        request: orders_pb2.GetTradesByUserRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> orders_pb2.GetTradesResponse:
+        user_id = request.user_id
+        limit = request.limit if request.limit > 0 else 50
+        offset = request.offset if request.offset >= 0 else 0
+
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            request_id=str(uuid.uuid4()), user_id=user_id, grpc_method="GetTradesByUser"
+        )
+        logger.info("grpc_get_trades_by_user_request_received")
+
+        try:
+            async with AsyncSessionLocal() as db_session:
+                trades = await trade_repo.get_by_user_id(
+                    db_session,
+                    user_id,
+                    limit,
+                    offset,
+                )
+                logger.info("trades_by_user_fetched", count=len(trades))
+                return orders_pb2.GetTradesResponse(
+                    trades=[
+                        orders_pb2.Trade(
+                            id=str(t.id),
+                            order_id=str(t.order_id),
+                            symbol=t.symbol,
+                            price=t.price,
+                            quantity=t.quantity,
+                            timestamp=float(t.timestamp)
+                            if t.timestamp is not None
+                            else 0.0,
+                        )
+                        for t in trades
+                    ]
+                )
+        except Exception as e:
+            logger.error("get_trades_by_user_error", error=str(e), exc_info=True)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details("Internal server error")
+            return orders_pb2.GetTradesResponse()
 
 
 async def serve_grpc():

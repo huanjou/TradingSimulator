@@ -29,6 +29,7 @@ class Order(BaseModel):
     order_type: OrderType
     quantity: Decimal
     price: Decimal | None = None
+    average_fill_price: Decimal | None = None
     filled_quantity: Decimal = Field(default=Decimal("0.0"))
     status: OrderStatus = Field(default=OrderStatus.PENDING)
 
