@@ -10,6 +10,7 @@ from .order import OrderStatus
 class TradeEvent(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     order_id: str
+    user_id: str
     symbol: str
     price: Decimal
     quantity: Decimal
@@ -18,6 +19,7 @@ class TradeEvent(BaseModel):
 
 class OrderUpdateEvent(BaseModel):
     order_id: str
+    user_id: str
     status: OrderStatus
     filled_quantity: Decimal
     average_fill_price: Decimal | None = None

@@ -65,6 +65,7 @@ class MatchingEngine:
 
         trade = TradeEvent(
             order_id=order.id,
+            user_id=order.user_id,
             symbol=order.symbol,
             price=price,
             quantity=order.quantity,
@@ -72,6 +73,7 @@ class MatchingEngine:
 
         update = OrderUpdateEvent(
             order_id=order.id,
+            user_id=order.user_id,
             status=order.status,
             filled_quantity=order.filled_quantity,
             average_fill_price=order.average_fill_price,
@@ -98,6 +100,7 @@ class MatchingEngine:
                 updates.append(
                     OrderUpdateEvent(
                         order_id=order.id,
+                        user_id=order.user_id,
                         status=order.status,
                         filled_quantity=order.filled_quantity,
                     )
@@ -134,6 +137,7 @@ class MatchingEngine:
                 updates.append(
                     OrderUpdateEvent(
                         order_id=order.id,
+                        user_id=order.user_id,
                         status=order.status,
                         filled_quantity=order.filled_quantity,
                     )
