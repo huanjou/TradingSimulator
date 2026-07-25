@@ -220,6 +220,7 @@ services:
       - user-service
       - query-service
       - stream-service
+      - notification-ws
     networks:
       - exchange_net
 
@@ -381,6 +382,27 @@ services:
         condition: service_healthy
     volumes:
       - ../services/stream-service:/app
+    networks:
+      - exchange_net
+
+  notification-ws:
+    build:
+      context: ../services/notification-ws
+      dockerfile: Dockerfile
+    container_name: exchange_notification_ws
+    ports:
+      - "8004:8000"
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - KAFKA_TRADES_TOPIC=trades
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/notification-ws:/app
     networks:
       - exchange_net
 
