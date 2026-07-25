@@ -60,31 +60,33 @@ export default function Dashboard() {
 
       {/* Main Grid */}
       <div className="flex-1 w-full p-4 pt-2 min-h-0">
-        <Group orientation="horizontal" className="h-full w-full">
-          {/* Left Column: Chart & Order History */}
-          <Panel defaultSize={75} minSize={30} className="flex flex-col h-full">
-            <Group orientation="vertical">
-              <Panel defaultSize={70} minSize={20} className="h-full">
+        <Group orientation="vertical" className="h-full w-full">
+          {/* Top Row: Chart & Order Entry */}
+          <Panel defaultSize={70} minSize={30}>
+            <Group orientation="horizontal" className="h-full w-full">
+              {/* Left: Chart */}
+              <Panel defaultSize={75} minSize={30} className="h-full">
                 <TVChart theme="dark" />
               </Panel>
 
-              <ResizeHandle orientation="vertical" />
+              <ResizeHandle orientation="horizontal" />
 
-              <Panel
-                defaultSize={30}
-                minSize={15}
-                className="h-full bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
-              >
-                <OrderHistory />
+              {/* Right: Order Entry */}
+              <Panel defaultSize={25} minSize={20} className="flex flex-col h-full">
+                <OrderEntry />
               </Panel>
             </Group>
           </Panel>
 
-          <ResizeHandle orientation="horizontal" />
+          <ResizeHandle orientation="vertical" />
 
-          {/* Right Column: Order Entry */}
-          <Panel defaultSize={25} minSize={20} className="flex flex-col h-full">
-            <OrderEntry />
+          {/* Bottom Row: Order History */}
+          <Panel
+            defaultSize={30}
+            minSize={15}
+            className="h-full bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
+          >
+            <OrderHistory />
           </Panel>
         </Group>
       </div>

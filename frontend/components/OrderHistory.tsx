@@ -36,6 +36,11 @@ export default function OrderHistory() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('trades');
   const [prices, setPrices] = useState<Record<string, number>>({});
+  
+  const newOrderPayload = useMarketStore((s) => s.newOrderPayload);
+  
+  const wsUpdatesRef = React.useRef<Record<string, any>>({});
+  const wsTradesRef = React.useRef<Record<string, Trade>>({});
 
   const fetchData = async () => {
     setLoading(true);
@@ -44,8 +49,30 @@ export default function OrderHistory() {
         api.get('/api/v1/orders/user/me?limit=50'),
         api.get('/api/v1/orders/user/me/trades?limit=50'),
       ]);
-      setOrders(ordersRes.data);
-      setTrades(tradesRes.data);
+      
+      const mergedOrders = ordersRes.data.map((o: Order) => {
+        const update = wsUpdatesRef.current[o.id];
+        if (update) {
+          return {
+            ...o,
+            status: update.status,
+            average_fill_price: update.average_fill_price != null ? parseFloat(update.average_fill_price) : o.average_fill_price
+          };
+        }
+        return o;
+      });
+      
+      // Merge DB trades with WS trades
+      const dbTrades = tradesRes.data;
+      const dbTradeIds = new Set(dbTrades.map((t: Trade) => t.id));
+      const wsTradesList = Object.values(wsTradesRef.current).filter((t: Trade) => !dbTradeIds.has(t.id));
+      
+      const mergedTrades = [...wsTradesList, ...dbTrades].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      
+      setOrders(mergedOrders);
+      setTrades(mergedTrades);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -56,6 +83,103 @@ export default function OrderHistory() {
   useEffect(() => {
     fetchData();
   }, [refreshTrigger]);
+
+  // Merge optimistic orders immediately when placed
+  useEffect(() => {
+    if (newOrderPayload) {
+      setOrders((prev) => {
+        if (!prev.some((o) => o.id === newOrderPayload.id)) {
+          return [newOrderPayload, ...prev];
+        }
+        return prev;
+      });
+    }
+  }, [newOrderPayload]);
+
+  // Subscribe to private user events (WebSocket)
+  useEffect(() => {
+    let ws: WebSocket;
+    let reconnectTimer: NodeJS.Timeout;
+
+    const connectWS = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws/notifications`);
+
+      ws.onopen = () => {
+        console.log('[WS] Connected to notifications');
+      };
+
+      ws.onerror = (err) => {
+        console.error('[WS] Error:', err);
+      };
+
+      ws.onclose = (event) => {
+        console.log('[WS] Closed:', event.code, event.reason);
+        // Attempt to reconnect after 3 seconds
+        reconnectTimer = setTimeout(connectWS, 3000);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          console.log('[WS] Received:', msg.event, msg.data);
+          
+          if (msg.event === 'order_update') {
+            const update = msg.data;
+            const orderId = update.order_id;
+            
+            // Store the latest WS update in ref to prevent fetchData from overwriting it with stale DB data
+            wsUpdatesRef.current[orderId] = update;
+            
+            setOrders((prevOrders) => {
+              return prevOrders.map((o) => {
+                if (o.id === orderId) {
+                  return {
+                    ...o,
+                    status: update.status,
+                    average_fill_price: update.average_fill_price != null
+                      ? parseFloat(update.average_fill_price)
+                      : o.average_fill_price,
+                  };
+                }
+                return o;
+              });
+            });
+          } else if (msg.event === 'trade') {
+            const newTrade = msg.data;
+            const parsedTrade = {
+              ...newTrade,
+              price: parseFloat(newTrade.price),
+              quantity: parseFloat(newTrade.quantity),
+              timestamp: typeof newTrade.timestamp === 'number' 
+                ? new Date(newTrade.timestamp * 1000).toISOString() 
+                : newTrade.timestamp
+            };
+            
+            // Store the latest WS trade in ref to prevent fetchData from overwriting it
+            wsTradesRef.current[parsedTrade.id] = parsedTrade;
+            
+            setTrades((prevTrades) => {
+              if (prevTrades.some((t) => t.id === parsedTrade.id)) return prevTrades;
+              return [parsedTrade, ...prevTrades];
+            });
+          }
+        } catch (err) {
+          console.error('Failed to parse websocket message', err);
+        }
+      };
+    };
+
+    connectWS();
+
+    return () => {
+      clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null; // prevent reconnect
+        ws.close();
+      }
+    };
+  }, []);
 
   // Subscribe to SSE for all unique symbols in trades
   useEffect(() => {

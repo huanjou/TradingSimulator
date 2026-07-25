@@ -60,7 +60,7 @@ export default function OrderEntry() {
     setLoading(true);
 
     try {
-      await api.post('/api/v1/orders/', {
+      const response = await api.post('/api/v1/orders/', {
         user_id: user.id,
         symbol,
         side,
@@ -68,6 +68,7 @@ export default function OrderEntry() {
         quantity: parsedQuantity,
       });
       setQuantity('');
+      useMarketStore.getState().setNewOrderPayload(response.data);
       refreshOrders(); // notify order history to refetch
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
