@@ -36,9 +36,9 @@ export default function OrderHistory() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('trades');
   const [prices, setPrices] = useState<Record<string, number>>({});
-  
+
   const newOrderPayload = useMarketStore((s) => s.newOrderPayload);
-  
+
   const wsUpdatesRef = React.useRef<Record<string, any>>({});
   const wsTradesRef = React.useRef<Record<string, Trade>>({});
 
@@ -49,28 +49,50 @@ export default function OrderHistory() {
         api.get('/api/v1/orders/user/me?limit=50'),
         api.get('/api/v1/orders/user/me/trades?limit=50'),
       ]);
-      
+
       const mergedOrders = ordersRes.data.map((o: Order) => {
         const update = wsUpdatesRef.current[o.id];
         if (update) {
           return {
             ...o,
             status: update.status,
-            average_fill_price: update.average_fill_price != null ? parseFloat(update.average_fill_price) : o.average_fill_price
+            average_fill_price:
+              update.average_fill_price != null
+                ? parseFloat(update.average_fill_price)
+                : o.average_fill_price,
           };
         }
         return o;
       });
-      
+
+      // Preserve optimistic order if DB replica hasn't caught up yet
+      const currentNewOrder = useMarketStore.getState().newOrderPayload;
+      if (currentNewOrder && !mergedOrders.some((o: Order) => o.id === currentNewOrder.id)) {
+        const update = wsUpdatesRef.current[currentNewOrder.id];
+        const optimisticOrder = update
+          ? {
+              ...currentNewOrder,
+              status: update.status,
+              average_fill_price:
+                update.average_fill_price != null
+                  ? parseFloat(update.average_fill_price)
+                  : currentNewOrder.average_fill_price,
+            }
+          : currentNewOrder;
+        mergedOrders.unshift(optimisticOrder);
+      }
+
       // Merge DB trades with WS trades
       const dbTrades = tradesRes.data;
       const dbTradeIds = new Set(dbTrades.map((t: Trade) => t.id));
-      const wsTradesList = Object.values(wsTradesRef.current).filter((t: Trade) => !dbTradeIds.has(t.id));
-      
-      const mergedTrades = [...wsTradesList, ...dbTrades].sort(
-        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      const wsTradesList = Object.values(wsTradesRef.current).filter(
+        (t: Trade) => !dbTradeIds.has(t.id),
       );
-      
+
+      const mergedTrades = [...wsTradesList, ...dbTrades].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
+
       setOrders(mergedOrders);
       setTrades(mergedTrades);
     } catch (error) {
@@ -123,23 +145,24 @@ export default function OrderHistory() {
         try {
           const msg = JSON.parse(event.data);
           console.log('[WS] Received:', msg.event, msg.data);
-          
+
           if (msg.event === 'order_update') {
             const update = msg.data;
             const orderId = update.order_id;
-            
+
             // Store the latest WS update in ref to prevent fetchData from overwriting it with stale DB data
             wsUpdatesRef.current[orderId] = update;
-            
+
             setOrders((prevOrders) => {
               return prevOrders.map((o) => {
                 if (o.id === orderId) {
                   return {
                     ...o,
                     status: update.status,
-                    average_fill_price: update.average_fill_price != null
-                      ? parseFloat(update.average_fill_price)
-                      : o.average_fill_price,
+                    average_fill_price:
+                      update.average_fill_price != null
+                        ? parseFloat(update.average_fill_price)
+                        : o.average_fill_price,
                   };
                 }
                 return o;
@@ -151,14 +174,15 @@ export default function OrderHistory() {
               ...newTrade,
               price: parseFloat(newTrade.price),
               quantity: parseFloat(newTrade.quantity),
-              timestamp: typeof newTrade.timestamp === 'number' 
-                ? new Date(newTrade.timestamp * 1000).toISOString() 
-                : newTrade.timestamp
+              timestamp:
+                typeof newTrade.timestamp === 'number'
+                  ? new Date(newTrade.timestamp * 1000).toISOString()
+                  : newTrade.timestamp,
             };
-            
+
             // Store the latest WS trade in ref to prevent fetchData from overwriting it
             wsTradesRef.current[parsedTrade.id] = parsedTrade;
-            
+
             setTrades((prevTrades) => {
               if (prevTrades.some((t) => t.id === parsedTrade.id)) return prevTrades;
               return [parsedTrade, ...prevTrades];
@@ -251,7 +275,7 @@ export default function OrderHistory() {
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 h-full flex flex-col">
+    <div className="h-full flex flex-col p-4">
       <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2">
         <div className="flex gap-6">
           <button

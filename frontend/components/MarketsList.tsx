@@ -20,17 +20,21 @@ const PriceCell = ({ price }: { price?: number }) => {
   const prevPriceRef = useRef<number | undefined>(price);
 
   useEffect(() => {
-    if (price !== undefined && prevPriceRef.current !== undefined && price !== prevPriceRef.current) {
+    if (
+      price !== undefined &&
+      prevPriceRef.current !== undefined &&
+      price !== prevPriceRef.current
+    ) {
       if (price > prevPriceRef.current) {
         setFlash('up');
       } else {
         setFlash('down');
       }
-      
+
       const timer = setTimeout(() => {
         setFlash(null);
       }, 300);
-      
+
       prevPriceRef.current = price;
       return () => clearTimeout(timer);
     }
@@ -43,7 +47,7 @@ const PriceCell = ({ price }: { price?: number }) => {
 
   let colorClass = 'text-zinc-100';
   let bgClass = 'bg-transparent';
-  
+
   if (flash === 'up') {
     colorClass = 'text-emerald-400';
     bgClass = 'bg-emerald-500/20';
@@ -53,7 +57,7 @@ const PriceCell = ({ price }: { price?: number }) => {
   }
 
   return (
-    <span 
+    <span
       className={`font-mono text-lg font-medium tabular-nums px-2 py-1 rounded transition-colors duration-500 ${colorClass} ${bgClass}`}
     >
       ${price.toFixed(2)}
@@ -125,8 +129,10 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
   useEffect(() => {
     if (symbols.length === 0) return;
 
-    const symbolString = symbols.map(s => s.name).join(',');
-    const eventSource = new EventSource(`/api/v1/stream?symbol=${encodeURIComponent(symbolString)}`);
+    const symbolString = symbols.map((s) => s.name).join(',');
+    const eventSource = new EventSource(
+      `/api/v1/stream?symbol=${encodeURIComponent(symbolString)}`,
+    );
 
     eventSource.addEventListener('price', (e) => {
       try {
@@ -150,7 +156,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
 
   return (
     <div className="min-h-screen bg-black text-zinc-100 font-sans px-4 flex flex-col gap-4 pb-10">
-      <Navbar onSymbolSelect={(s) => router.push(`/?symbol=${s}`)} />
+      <Navbar />
 
       <div className="max-w-5xl mx-auto w-full mt-6 flex flex-col gap-6">
         <div className="flex justify-between items-end">

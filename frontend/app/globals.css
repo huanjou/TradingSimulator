@@ -37,3 +37,31 @@ input[type='number']::-webkit-outer-spin-button {
 input[type='number'] {
   -moz-appearance: textfield; /* Firefox */
 }
+
+/* Custom Resize Handle for React Grid Layout */
+.react-resizable-handle {
+  background-image: none !important;
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  cursor: se-resize;
+  z-index: 50;
+}
+
+.react-resizable-handle::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #52525b; /* zinc-600 */
+  border-bottom: 2px solid #52525b; /* zinc-600 */
+  border-bottom-right-radius: 2px;
+}
+
+.react-resizable-handle:hover::after {
+  border-color: #10b981; /* emerald-500 */
+}

@@ -90,7 +90,7 @@ export default function OrderEntry() {
   };
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col gap-4 h-full overflow-y-auto">
+    <div className="flex flex-col gap-4 h-full overflow-y-auto p-4">
       <h2 className="text-zinc-100 font-semibold text-lg flex items-center justify-between">
         <span>Order Entry</span>
         {currentPrice && (

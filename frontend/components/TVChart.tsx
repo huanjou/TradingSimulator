@@ -20,7 +20,7 @@ const TVChart: React.FC<TVChartProps> = ({ theme = 'dark' }) => {
   };
 
   return (
-    <div className="w-full h-full relative rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 min-h-0">
+    <div className="w-full h-full relative min-h-0">
       <AdvancedRealTimeChart
         key={symbol}
         theme={theme}
