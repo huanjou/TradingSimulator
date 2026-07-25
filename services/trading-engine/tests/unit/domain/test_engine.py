@@ -47,6 +47,8 @@ def test_process_market_order_with_price(engine):
     assert len(updates) == 1
     assert updates[0].status == OrderStatus.FILLED
     assert updates[0].filled_quantity == Decimal("1.5")
+    assert updates[0].average_fill_price == Decimal("50010")
+    assert order.average_fill_price == Decimal("50010")
 
 
 def test_process_limit_order_no_cross(engine):
@@ -89,6 +91,8 @@ def test_process_limit_order_cross_immediate(engine):
     assert trades[0].price == Decimal("50000")  # SELL at BID
     assert len(updates) == 1
     assert updates[0].status == OrderStatus.FILLED
+    assert updates[0].average_fill_price == Decimal("50000")
+    assert order.average_fill_price == Decimal("50000")
 
 
 def test_process_market_data_fills_pending(engine):
@@ -113,6 +117,9 @@ def test_process_market_data_fills_pending(engine):
     assert trades[0].price == Decimal("50000")
     assert trades[0].order_id == str(order.id)
     assert len(engine.bids["BTCUSDT"]) == 0
+    assert updates[0].status == OrderStatus.FILLED
+    assert updates[0].average_fill_price == Decimal("50000")
+    assert order.average_fill_price == Decimal("50000")
 
 
 def test_limit_order_fifo_execution(engine):
