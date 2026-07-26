@@ -3,7 +3,7 @@ import uuid
 import structlog
 from aiokafka import AIOKafkaConsumer
 from app.core.config import get_settings
-from app.services.processor import process_orders
+from app.services.processor import process_orders, process_balances
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)
@@ -15,8 +15,8 @@ async def consume():
     Pulls batches of orders and hands them off to the processor.
     """
     consumer = AIOKafkaConsumer(
-        "orders",
         settings.KAFKA_ORDER_UPDATES_TOPIC,
+        settings.KAFKA_BALANCE_UPDATES_TOPIC,
         bootstrap_servers=settings.KAFKA_BROKER,
         group_id=settings.KAFKA_CONSUMER_GROUP,
         auto_offset_reset="earliest",
@@ -24,7 +24,7 @@ async def consume():
     )
     await consumer.start()
     logger.info(
-        "consumer_started", topics=["orders", settings.KAFKA_ORDER_UPDATES_TOPIC]
+        "consumer_started", topics=[settings.KAFKA_ORDER_UPDATES_TOPIC, settings.KAFKA_BALANCE_UPDATES_TOPIC]
     )
     try:
         while True:
@@ -63,7 +63,10 @@ async def consume():
                         kind=trace.SpanKind.CONSUMER,
                     ):
                         logger.info("processing_batch")
-                        await process_orders(messages, topic=tp.topic)
+                        if tp.topic == settings.KAFKA_ORDER_UPDATES_TOPIC:
+                            await process_orders(messages, topic=tp.topic)
+                        elif tp.topic == settings.KAFKA_BALANCE_UPDATES_TOPIC:
+                            await process_balances(messages)
                         await consumer.commit({tp: messages[-1].offset + 1})
 
     finally:

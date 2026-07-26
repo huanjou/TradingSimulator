@@ -22,8 +22,9 @@ async def main():
 
     # Recover state (Fail Fast: let it raise Exception if it fails)
     logger.info("recovering_pending_orders_from_snapshot")
-    pending_orders, initial_offsets = await snapshot_manager.load_latest_snapshot()
+    pending_orders, initial_offsets, wallets_data = await snapshot_manager.load_latest_snapshot()
     engine.restore_orders(pending_orders)
+    engine.restore_wallets(wallets_data)
 
     publisher = KafkaPublisher()
 
@@ -32,11 +33,13 @@ async def main():
         publisher=publisher,
         trades_topic=settings.KAFKA_TRADES_TOPIC,
         updates_topic=settings.KAFKA_ORDER_UPDATES_TOPIC,
+        balance_updates_topic=settings.KAFKA_BALANCE_UPDATES_TOPIC,
     )
 
     consumer = KafkaConsumerRunner(
         order_handler=service.handle_orders_batch,
         market_data_handler=service.handle_market_data_batch,
+        wallet_commands_handler=service.handle_wallet_commands_batch,
         initial_offsets=initial_offsets,
     )
 

@@ -10,6 +10,7 @@ from app.db.session import AsyncSessionLocal
 from app.repositories.order import order_repo
 from app.repositories.symbol import symbol_repo
 from app.repositories.trade import trade_repo
+from app.repositories.balance import balance_repo
 from app.services.processor import process_orders
 
 tracer = trace.get_tracer(__name__)
@@ -28,6 +29,7 @@ async def consume():
         "trades",
         "system_events",
         settings.KAFKA_ORDER_UPDATES_TOPIC,
+        settings.KAFKA_BALANCE_UPDATES_TOPIC,
         bootstrap_servers=settings.KAFKA_BROKER,
         group_id="ledger-writer-group",
         auto_offset_reset="earliest",
@@ -41,6 +43,7 @@ async def consume():
             "trades",
             "system_events",
             settings.KAFKA_ORDER_UPDATES_TOPIC,
+            settings.KAFKA_BALANCE_UPDATES_TOPIC,
         ],
     )
     try:
@@ -88,6 +91,7 @@ async def consume():
                                         order_repo=order_repo,
                                         trade_repo=trade_repo,
                                         symbol_repo=symbol_repo,
+                                        balance_repo=balance_repo,
                                         topic=tp.topic,
                                     )
                                 await consumer.commit({tp: messages[-1].offset + 1})

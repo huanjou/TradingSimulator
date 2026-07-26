@@ -41,7 +41,16 @@ class SnapshotManager:
                 for order in engine.get_all_pending_orders()
             ]
 
-            snapshot_data = {"offsets": offsets, "pending_orders": all_orders}
+            wallets_data = {}
+            for user_id, user_wallets in engine.wallets.items():
+                wallets_data[user_id] = {}
+                for currency, wallet_info in user_wallets.items():
+                    wallets_data[user_id][currency] = {
+                        "available": str(wallet_info.available),
+                        "locked": str(wallet_info.locked)
+                    }
+
+            snapshot_data = {"offsets": offsets, "pending_orders": all_orders, "wallets": wallets_data}
 
             await self.redis.set(self.snapshot_key, orjson.dumps(snapshot_data))
             logger.info("snapshot_saved", orders_count=len(all_orders), offsets=offsets)
@@ -50,25 +59,26 @@ class SnapshotManager:
 
     async def load_latest_snapshot(
         self,
-    ) -> Tuple[List[Order], Dict[str, Dict[str, int]]]:
+    ) -> Tuple[List[Order], Dict[str, Dict[str, int]], Dict[str, Dict[str, dict]]]:
         """
         Loads the latest snapshot from Redis.
         Returns:
-            Tuple[List[Order], offsets_dict]
+            Tuple[List[Order], offsets_dict, wallets_dict]
         """
         try:
             raw_data = await self.redis.get(self.snapshot_key)
             if not raw_data:
                 logger.info("no_snapshot_found_in_redis")
-                return [], {}
+                return [], {}, {}
 
             snapshot_data = orjson.loads(raw_data)
             offsets = snapshot_data.get("offsets", {})
             orders_data = snapshot_data.get("pending_orders", [])
+            wallets_data = snapshot_data.get("wallets", {})
 
             orders = [Order.model_validate(data) for data in orders_data]
             logger.info("snapshot_loaded", orders_count=len(orders), offsets=offsets)
-            return orders, offsets
+            return orders, offsets, wallets_data
         except Exception as e:
             logger.error("failed_to_load_snapshot", error=str(e), exc_info=True)
             # If snapshot is corrupted, return empty to not crash forever, or crash to investigate?

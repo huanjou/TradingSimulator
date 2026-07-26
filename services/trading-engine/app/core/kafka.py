@@ -63,10 +63,12 @@ class KafkaConsumerRunner:
         self,
         order_handler: Callable[[list[dict]], Awaitable[None]],
         market_data_handler: Callable[[list[dict]], Awaitable[None]],
+        wallet_commands_handler: Callable[[list[dict]], Awaitable[None]],
         initial_offsets: dict = None,
     ):
         self.order_handler = order_handler
         self.market_data_handler = market_data_handler
+        self.wallet_commands_handler = wallet_commands_handler
         self.initial_offsets = initial_offsets or {}
         # Deep copy to maintain state
         self.current_offsets = {
@@ -81,7 +83,7 @@ class KafkaConsumerRunner:
             enable_auto_commit=False,  # Explicitly disable to avoid data loss
         )
         self.consumer.subscribe(
-            [settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC],
+            [settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC, settings.KAFKA_WALLET_COMMANDS_TOPIC],
             listener=SeekListener(self.consumer, self.initial_offsets),
         )
 
@@ -89,7 +91,7 @@ class KafkaConsumerRunner:
         await self.consumer.start()
         logger.info(
             "kafka_consumer_started",
-            topics=[settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC],
+            topics=[settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC, settings.KAFKA_WALLET_COMMANDS_TOPIC],
         )
 
         try:
@@ -161,6 +163,8 @@ class KafkaConsumerRunner:
                     await self.order_handler(batch_data)
                 elif topic == settings.KAFKA_MARKET_DATA_TOPIC:
                     await self.market_data_handler(batch_data)
+                elif topic == settings.KAFKA_WALLET_COMMANDS_TOPIC:
+                    await self.wallet_commands_handler(batch_data)
                 else:
                     logger.warning("unknown_topic_in_batch", topic=topic)
 

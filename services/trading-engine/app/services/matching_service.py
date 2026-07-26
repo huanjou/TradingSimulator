@@ -33,11 +33,13 @@ class MatchingService:
         publisher: MessagePublisher,
         trades_topic: str,
         updates_topic: str,
+        balance_updates_topic: str,
     ):
         self.engine = engine
         self.publisher = publisher
         self.trades_topic = trades_topic
         self.updates_topic = updates_topic
+        self.balance_updates_topic = balance_updates_topic
 
     async def handle_orders_batch(self, orders_data: list[dict]) -> None:
         try:
@@ -48,7 +50,7 @@ class MatchingService:
                 order = Order.model_validate(order_data)
 
                 # 2. Execute business logic
-                trades, updates = self.engine.process_order(order)
+                trades, updates, wallet_updates = self.engine.process_order(order)
 
                 orders_processed_counter.add(1, {"symbol": order.symbol})
                 trades_executed_counter.add(len(trades), {"symbol": order.symbol})
@@ -84,6 +86,21 @@ class MatchingService:
                         status=update.status.value,
                     )
 
+                for w_update in wallet_updates:
+                    w_update_bytes = orjson.dumps(w_update.model_dump(mode="json"))
+                    publish_futures.append(
+                        self.publisher.publish(
+                            self.balance_updates_topic,
+                            w_update_bytes,
+                            key=w_update.user_id.encode("utf-8"),
+                        )
+                    )
+                    logger.info(
+                        "balance_update_published",
+                        user_id=w_update.user_id,
+                        currency=w_update.currency,
+                    )
+
             # Await all publishes concurrently
             if publish_futures:
                 await asyncio.gather(*publish_futures)
@@ -101,7 +118,7 @@ class MatchingService:
                 bid = Decimal(str(md.get("bid_price", 0)))
                 ask = Decimal(str(md.get("ask_price", 0)))
 
-                trades, updates = self.engine.process_market_data(symbol, bid, ask)
+                trades, updates, wallet_updates = self.engine.process_market_data(symbol, bid, ask)
 
                 trades_executed_counter.add(len(trades), {"symbol": symbol})
 
@@ -136,6 +153,21 @@ class MatchingService:
                         status=update.status.value,
                     )
 
+                for w_update in wallet_updates:
+                    w_update_bytes = orjson.dumps(w_update.model_dump(mode="json"))
+                    publish_futures.append(
+                        self.publisher.publish(
+                            self.balance_updates_topic,
+                            w_update_bytes,
+                            key=w_update.user_id.encode("utf-8"),
+                        )
+                    )
+                    logger.info(
+                        "balance_update_published_from_md",
+                        user_id=w_update.user_id,
+                        currency=w_update.currency,
+                    )
+
             # Await all publishes concurrently
             if publish_futures:
                 await asyncio.gather(*publish_futures)
@@ -144,4 +176,30 @@ class MatchingService:
             logger.error(
                 "market_data_batch_handling_failed", error=str(e), exc_info=True
             )
+            raise
+
+    async def handle_wallet_commands_batch(self, commands_data: list[dict]) -> None:
+        try:
+            publish_futures = []
+            for cmd in commands_data:
+                if cmd.get("type") == "DEPOSIT":
+                    user_id = cmd["user_id"]
+                    currency = cmd["currency"]
+                    amount = Decimal(str(cmd["amount"]))
+                    update = self.engine.process_deposit(user_id, currency, amount)
+                    
+                    update_bytes = orjson.dumps(update.model_dump(mode="json"))
+                    publish_futures.append(
+                        self.publisher.publish(
+                            self.balance_updates_topic,
+                            update_bytes,
+                            key=user_id.encode("utf-8"),
+                        )
+                    )
+                    logger.info("deposit_processed", user_id=user_id, currency=currency, amount=str(amount))
+            
+            if publish_futures:
+                await asyncio.gather(*publish_futures)
+        except Exception as e:
+            logger.error("wallet_commands_handling_failed", error=str(e), exc_info=True)
             raise

@@ -221,6 +221,7 @@ services:
       - query-service
       - stream-service
       - notification-ws
+      - wallet-service
     networks:
       - exchange_net
 
@@ -427,6 +428,26 @@ services:
         condition: service_healthy
     volumes:
       - ../services/user-service:/app
+    networks:
+      - exchange_net
+
+  wallet-service:
+    build:
+      context: ../services/wallet-service
+      dockerfile: Dockerfile
+    container_name: exchange_wallet_service
+    ports:
+      - "8005:8000"
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - KAFKA_WALLET_COMMANDS_TOPIC=wallet_commands
+      - ENVIRONMENT=${APP_ENV:-development}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/wallet-service:/app
     networks:
       - exchange_net
 

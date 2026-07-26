@@ -23,3 +23,9 @@ class OrderUpdateEvent(BaseModel):
     status: OrderStatus
     filled_quantity: Decimal
     average_fill_price: Decimal | None = None
+
+class BalanceUpdateEvent(BaseModel):
+    user_id: str
+    currency: str
+    available: Decimal
+    locked: Decimal

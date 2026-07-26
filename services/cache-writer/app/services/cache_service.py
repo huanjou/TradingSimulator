@@ -29,3 +29,22 @@ async def cache_orders_bulk(orders_data: list[dict]):
     except Exception as e:
         logger.error("failed_to_bulk_cache_orders", error=str(e), exc_info=True)
         raise
+
+async def cache_balances_bulk(balances_data: list[dict]):
+    import orjson
+    try:
+        pipeline = redis_client.pipeline(transaction=False)
+        for b in balances_data:
+            user_id = b.get("user_id")
+            currency = b.get("currency")
+            if not user_id or not currency:
+                continue
+            val = orjson.dumps({
+                "available": str(b.get("available", "0")),
+                "locked": str(b.get("locked", "0"))
+            }).decode("utf-8")
+            pipeline.hset(f"wallet:{user_id}", currency, val)
+        await pipeline.execute()
+    except Exception as e:
+        logger.error("failed_to_bulk_cache_balances", error=str(e), exc_info=True)
+        raise

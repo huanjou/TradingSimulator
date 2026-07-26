@@ -4,6 +4,7 @@ from app.core.utils import is_valid_uuid
 from app.repositories.order import OrderRepository
 from app.repositories.symbol import SymbolRepository
 from app.repositories.trade import TradeRepository
+from app.repositories.balance import BalanceRepository
 from opentelemetry import metrics
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +27,7 @@ async def process_orders(
     order_repo: OrderRepository,
     trade_repo: TradeRepository,
     symbol_repo: SymbolRepository,
+    balance_repo: BalanceRepository = None,
     topic: str = "orders",
 ):
     """
@@ -36,6 +38,7 @@ async def process_orders(
 
         order_updates = {}
         trade_inserts = {}
+        balance_upserts = {}
         system_events = []
 
         for msg in messages:
@@ -127,6 +130,20 @@ async def process_orders(
 
             elif topic == "system_events":
                 system_events.append(data)
+                
+            elif topic == "balance_updates":
+                user_id = data.get("user_id")
+                currency = data.get("currency")
+                if user_id and currency:
+                    key = f"{user_id}_{currency}"
+                    balance_upserts[key] = {
+                        "user_id": user_id,
+                        "currency": currency,
+                        "available": data.get("available", 0.0),
+                        "locked": data.get("locked", 0.0),
+                    }
+                else:
+                    logger.warning("ignored_balance_invalid_data", data=data)
 
         order_inserts_list = list(order_inserts.values())
         order_updates_list = list(order_updates.values())
@@ -185,6 +202,15 @@ async def process_orders(
                             error=str(inner_e),
                         )
                         await session.rollback()
+
+        balance_upserts_list = list(balance_upserts.values())
+        if balance_upserts_list and balance_repo:
+            try:
+                await balance_repo.upsert_bulk(session, balance_upserts_list)
+                ledger_writes_counter.add(len(balance_upserts_list), {"type": "balance_upsert"})
+            except Exception as e:
+                logger.warning("bulk_balance_upsert_failed", error=str(e))
+                await session.rollback()
 
         for event in system_events:
             if event.get("type") == "SYMBOL_CREATED":

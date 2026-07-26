@@ -58,3 +58,22 @@ async def process_orders(messages, topic: str = "orders"):
         cache_write_errors_counter.add(1, {"reason": "batch_failed"})
         logger.error("batch_processing_failed", error=str(e), exc_info=True)
         raise
+
+async def process_balances(messages):
+    from app.services.cache_service import cache_balances_bulk
+    try:
+        cache_dicts = []
+        for msg in messages:
+            try:
+                data = orjson.loads(msg.value)
+                cache_dicts.append(data)
+            except Exception as e:
+                logger.error("poison_pill_detected", reason="invalid_json", error=str(e))
+                continue
+        if cache_dicts:
+            await cache_balances_bulk(cache_dicts)
+            cache_writes_counter.add(len(cache_dicts), {"type": "cache_upsert_balances"})
+    except Exception as e:
+        cache_write_errors_counter.add(1, {"reason": "batch_failed"})
+        logger.error("batch_processing_failed", error=str(e), exc_info=True)
+        raise

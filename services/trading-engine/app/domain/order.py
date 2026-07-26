@@ -19,6 +19,7 @@ class OrderStatus(str, Enum):
     PARTIALLY_FILLED = "PARTIALLY_FILLED"
     FILLED = "FILLED"
     CANCELED = "CANCELED"
+    REJECTED = "REJECTED"
 
 
 class Order(BaseModel):
