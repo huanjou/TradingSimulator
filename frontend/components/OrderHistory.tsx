@@ -4,6 +4,7 @@ import api from '@/lib/axios';
 import { format } from 'date-fns';
 
 import { useMarketStore } from '@/store/useMarketStore';
+import { useWalletStore } from '@/store/useWalletStore';
 
 interface Order {
   id: string;
@@ -184,8 +185,14 @@ export default function OrderHistory() {
 
             setTrades((prevTrades) => {
               if (prevTrades.some((t) => t.id === parsedTrade.id)) return prevTrades;
-              return [parsedTrade, ...prevTrades];
+              const merged = [parsedTrade, ...prevTrades];
+              return merged.sort(
+                (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+              );
             });
+          } else if (msg.event === 'balance_update') {
+            // Instantly fetch wallets to reflect new balance
+            useWalletStore.getState().fetchWallets();
           }
         } catch (err) {
           console.error('Failed to parse websocket message', err);

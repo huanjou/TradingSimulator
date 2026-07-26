@@ -29,7 +29,10 @@ export const useWalletStore = create<WalletState>()((set) => ({
       }
       set({ wallets: walletsMap, isLoading: false });
     } catch (error: any) {
-      set({ error: error?.response?.data?.detail || error.message || 'Failed to fetch wallets', isLoading: false });
+      set({
+        error: error?.response?.data?.detail || error.message || 'Failed to fetch wallets',
+        isLoading: false,
+      });
     }
   },
 }));

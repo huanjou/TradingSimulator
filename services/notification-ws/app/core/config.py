@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     KAFKA_BROKER: str = "kafka:9092"
     KAFKA_ORDER_UPDATES_TOPIC: str = "order_updates"
     KAFKA_TRADES_TOPIC: str = "trades"
+    KAFKA_BALANCE_UPDATES_TOPIC: str = "balance_updates"
 
     # JWT
     JWT_SECRET: str

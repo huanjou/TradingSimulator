@@ -4,15 +4,33 @@ import api from '@/lib/axios';
 import axios from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useMarketStore } from '@/store/useMarketStore';
-import { ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { useWalletStore } from '@/store/useWalletStore';
+import { ArrowUpCircle, ArrowDownCircle, PlusCircle, X } from 'lucide-react';
 import Decimal from 'decimal.js';
 
 export default function OrderEntry() {
   const { user } = useAuthStore();
   const { symbol, refreshOrders, currentPrice, setCurrentPrice } = useMarketStore();
+  const { wallets, fetchWallets } = useWalletStore();
   const [quantity, setQuantity] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('1000');
+  const [depositCurrency, setDepositCurrency] = useState('USD');
+  const [depositLoading, setDepositLoading] = useState(false);
+
+  const baseCurrency = symbol.split('/')[0] || '';
+  const quoteCurrency = symbol.split('/')[1] || 'USD';
+
+  React.useEffect(() => {
+    if (user?.id) {
+      fetchWallets();
+      const interval = setInterval(fetchWallets, 5000); // Polling for balance updates
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, fetchWallets]);
 
   React.useEffect(() => {
     setCurrentPrice(null);
@@ -56,6 +74,22 @@ export default function OrderEntry() {
       setError('User not authenticated');
       return;
     }
+
+    const cost = parsedQuantity * (currentPrice || 0); // approximate cost for market order
+    if (side === 'BUY') {
+      const availableQuote = parseFloat(wallets[quoteCurrency]?.available || '0');
+      if (availableQuote < cost) {
+        setError(`Insufficient ${quoteCurrency} balance. Need ~${cost.toFixed(2)}, have ${availableQuote.toFixed(2)}`);
+        return;
+      }
+    } else {
+      const availableBase = parseFloat(wallets[baseCurrency]?.available || '0');
+      if (availableBase < parsedQuantity) {
+        setError(`Insufficient ${baseCurrency} balance. Need ${parsedQuantity}, have ${availableBase}`);
+        return;
+      }
+    }
+
     setError('');
     setLoading(true);
 
@@ -89,14 +123,38 @@ export default function OrderEntry() {
     }
   };
 
+  const handleDeposit = async () => {
+    if (!user?.id) return;
+    setDepositLoading(true);
+    try {
+      await api.post('/api/v1/wallets/deposit', {
+        currency: depositCurrency,
+        amount: parseFloat(depositAmount)
+      });
+      setShowDeposit(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDepositLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-4 h-full overflow-y-auto p-4">
-      <h2 className="text-zinc-100 font-semibold text-lg flex items-center justify-between">
+    <div className="flex flex-col gap-4 h-full overflow-y-auto p-4 relative">
+      <h2 className="text-zinc-100 font-semibold text-lg flex items-center justify-between mb-2">
         <span>Order Entry</span>
-        {currentPrice && (
-          <span className="text-zinc-400 text-sm font-mono">${currentPrice.toFixed(2)}</span>
-        )}
+        <button 
+          onClick={() => setShowDeposit(true)}
+          className="text-xs flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded transition-colors"
+        >
+          <PlusCircle className="w-3 h-3" />
+          Deposit
+        </button>
       </h2>
+      <div className="flex items-center justify-between text-zinc-400 text-sm mb-4">
+        <span>{baseCurrency}: <span className="font-mono text-zinc-200">{parseFloat(wallets[baseCurrency]?.available || '0').toFixed(4)}</span></span>
+        <span>{quoteCurrency}: <span className="font-mono text-zinc-200">{parseFloat(wallets[quoteCurrency]?.available || '0').toFixed(2)}</span></span>
+      </div>
 
       <div className="flex flex-col gap-2">
         <label className="text-sm text-zinc-400">Symbol</label>
@@ -131,7 +189,7 @@ export default function OrderEntry() {
           className="bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-md font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowUpCircle className="w-5 h-5" />
-          Buy / Long
+          Buy {baseCurrency}
         </button>
         <button
           onClick={() => submitOrder('SELL')}
@@ -139,12 +197,55 @@ export default function OrderEntry() {
           className="bg-rose-600 hover:bg-rose-500 text-white py-3 rounded-md font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowDownCircle className="w-5 h-5" />
-          Sell / Short
+          Sell {baseCurrency}
         </button>
       </div>
 
       {loading && (
         <div className="text-center text-zinc-500 text-xs animate-pulse">Processing...</div>
+      )}
+
+      {showDeposit && (
+        <div className="absolute inset-0 bg-zinc-900/90 backdrop-blur-sm z-10 flex flex-col p-4 justify-center">
+          <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-zinc-100 font-semibold">Quick Deposit</h3>
+              <button onClick={() => setShowDeposit(false)} className="text-zinc-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Currency</label>
+                <select 
+                  value={depositCurrency} 
+                  onChange={(e) => setDepositCurrency(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-100"
+                  disabled
+                >
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-zinc-400 mb-1 block">Amount</label>
+                <input 
+                  type="number" 
+                  value={depositAmount} 
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-100"
+                />
+              </div>
+              <button 
+                onClick={handleDeposit}
+                disabled={depositLoading}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm font-semibold transition-colors mt-2"
+              >
+                {depositLoading ? 'Processing...' : 'Confirm Deposit'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

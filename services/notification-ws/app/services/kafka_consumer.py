@@ -17,6 +17,7 @@ class NotificationKafkaConsumer:
         self.consumer = AIOKafkaConsumer(
             settings.KAFKA_ORDER_UPDATES_TOPIC,
             settings.KAFKA_TRADES_TOPIC,
+            settings.KAFKA_BALANCE_UPDATES_TOPIC,
             bootstrap_servers=settings.KAFKA_BROKER,
             group_id="notification-ws-group",
             auto_offset_reset="latest",
@@ -81,6 +82,19 @@ class NotificationKafkaConsumer:
                             )
                         else:
                             logger.warning("trade_missing_user_id", data=data)
+
+                    elif topic == settings.KAFKA_BALANCE_UPDATES_TOPIC:
+                        user_id = data.get("user_id")
+                        if user_id:
+                            payload = json.dumps({"event": "balance_update", "data": data})
+                            await manager.send_personal_message(payload, user_id)
+                            logger.info(
+                                "balance_update_dispatched",
+                                user_id=user_id,
+                                currency=data.get("currency"),
+                            )
+                        else:
+                            logger.warning("balance_update_missing_user_id", data=data)
 
         except asyncio.CancelledError:
             pass

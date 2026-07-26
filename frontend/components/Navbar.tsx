@@ -51,10 +51,8 @@ export default function Navbar() {
     setIsSearchOpen(false);
     setSymbol(symbol);
 
-    // Navigate to dashboard if not on it
-    if (pathname !== '/') {
-      router.push(`/?symbol=${symbol}`);
-    }
+    // Navigate to update URL which will trigger state sync in Dashboard
+    router.push(`/?symbol=${symbol}`);
   };
 
   return (

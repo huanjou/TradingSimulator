@@ -5,6 +5,7 @@ import OrderEntry from '@/components/OrderEntry';
 import OrderHistory from '@/components/OrderHistory';
 import Navbar from '@/components/Navbar';
 import { useMarketStore } from '@/store/useMarketStore';
+import { useSearchParams } from 'next/navigation';
 
 // @ts-ignore - Type resolution issue with Next.js
 import {
@@ -58,8 +59,20 @@ const generateDefaultLayout = (): Layout[] => {
 export default function Dashboard() {
   const hasHydrated = useMarketStore((s) => s._hasHydrated);
   const layoutResetTrigger = useMarketStore((s) => s.layoutResetTrigger);
+  const setSymbol = useMarketStore((s) => s.setSymbol);
+  const currentSymbol = useMarketStore((s) => s.symbol);
+  
   const [layouts, setLayouts] = useState<Layouts>({ lg: [] }); // Init empty, set in useEffect
   const [mounted, setMounted] = useState(false);
+  
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const urlSymbol = searchParams.get('symbol');
+    if (urlSymbol && urlSymbol !== currentSymbol) {
+      setSymbol(urlSymbol);
+    }
+  }, [searchParams, currentSymbol, setSymbol]);
 
   useEffect(() => {
     setMounted(true);
