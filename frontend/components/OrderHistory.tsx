@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import api from '@/lib/axios';
 import { format } from 'date-fns';
-import { RefreshCw } from 'lucide-react';
 
 import { useMarketStore } from '@/store/useMarketStore';
 
@@ -309,13 +308,6 @@ export default function OrderHistory() {
             History
           </button>
         </div>
-        <button
-          onClick={fetchData}
-          className="text-zinc-400 hover:text-zinc-100 transition-colors"
-          disabled={loading}
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
       </div>
 
       <div className="flex-1 overflow-auto pr-2">

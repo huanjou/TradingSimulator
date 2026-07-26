@@ -29,15 +29,36 @@ const TVChart = dynamic(() => import('@/components/TVChart'), {
   ),
 });
 
-const DEFAULT_LAYOUT: Layout[] = [
-  { i: 'chart', x: 0, y: 0, w: 9, h: 14, minW: 4, minH: 8 },
-  { i: 'order-entry', x: 9, y: 0, w: 3, h: 14, minW: 2, minH: 7 },
-  { i: 'order-history', x: 0, y: 14, w: 12, h: 10, minW: 4, minH: 5 },
-];
+const generateDefaultLayout = (): Layout[] => {
+  if (typeof window === 'undefined') {
+    return [
+      { i: 'chart', x: 0, y: 0, w: 12, h: 16, minW: 4, minH: 6 },
+      { i: 'order-history', x: 0, y: 16, w: 10, h: 7, minW: 4, minH: 5 },
+      { i: 'order-entry', x: 10, y: 16, w: 2, h: 7, minW: 2, minH: 7 },
+    ];
+  }
+
+  // Calculate available rows to fit the screen without scrolling
+  // Offsets: Navbar (~80px) + Padding (~24px) + Container margins (~16px) = ~120px
+  const availableHeight = window.innerHeight - 120;
+
+  // Each row is 40px + 16px margin = 56px (except last row doesn't add margin to total container height, but grid math: height = rows * rowHeight + (rows - 1) * margin = rows * 56 - 16)
+  const totalRows = Math.floor((availableHeight + 16) / 56);
+
+  const bottomRows = 7;
+  const chartRows = Math.max(6, totalRows - bottomRows);
+
+  return [
+    { i: 'chart', x: 0, y: 0, w: 12, h: chartRows, minW: 4, minH: 6 },
+    { i: 'order-history', x: 0, y: chartRows, w: 10, h: bottomRows, minW: 4, minH: 5 },
+    { i: 'order-entry', x: 10, y: chartRows, w: 2, h: bottomRows, minW: 2, minH: 7 },
+  ];
+};
 
 export default function Dashboard() {
   const hasHydrated = useMarketStore((s) => s._hasHydrated);
-  const [layouts, setLayouts] = useState<Layouts>({ lg: DEFAULT_LAYOUT });
+  const layoutResetTrigger = useMarketStore((s) => s.layoutResetTrigger);
+  const [layouts, setLayouts] = useState<Layouts>({ lg: [] }); // Init empty, set in useEffect
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -48,9 +69,20 @@ export default function Dashboard() {
         setLayouts(JSON.parse(saved));
       } catch (e) {
         console.error('Failed to parse layouts', e);
+        setLayouts({ lg: generateDefaultLayout() });
       }
+    } else {
+      setLayouts({ lg: generateDefaultLayout() });
     }
   }, []);
+
+  useEffect(() => {
+    if (layoutResetTrigger > 0) {
+      const defaultLayouts = { lg: generateDefaultLayout() };
+      setLayouts(defaultLayouts);
+      localStorage.setItem('dashboard-layouts', JSON.stringify(defaultLayouts));
+    }
+  }, [layoutResetTrigger]);
 
   const onLayoutChange = (currentLayout: Layout[], allLayouts: Layouts) => {
     setLayouts(allLayouts);

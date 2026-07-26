@@ -12,6 +12,8 @@ export interface MarketState {
   setHasHydrated: (state: boolean) => void;
   newOrderPayload: any | null;
   setNewOrderPayload: (order: any) => void;
+  layoutResetTrigger: number;
+  triggerLayoutReset: () => void;
 }
 
 export const useMarketStore = create<MarketState>()(
@@ -22,11 +24,14 @@ export const useMarketStore = create<MarketState>()(
       currentPrice: null,
       _hasHydrated: false,
       newOrderPayload: null,
+      layoutResetTrigger: 0,
       setSymbol: (symbol) => set({ symbol, currentPrice: null }),
       refreshOrders: () => set((state) => ({ orderRefreshTrigger: state.orderRefreshTrigger + 1 })),
       setCurrentPrice: (price) => set({ currentPrice: price }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
       setNewOrderPayload: (order) => set({ newOrderPayload: order }),
+      triggerLayoutReset: () =>
+        set((state) => ({ layoutResetTrigger: state.layoutResetTrigger + 1 })),
     }),
     {
       name: 'market-store',

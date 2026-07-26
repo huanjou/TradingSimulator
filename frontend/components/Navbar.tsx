@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import { TrendingUp, LogOut, Search } from 'lucide-react';
+import { TrendingUp, LogOut, Search, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useMarketStore } from '@/store/useMarketStore';
 import { useDebounce } from '@/lib/hooks/useDebounce';
@@ -10,6 +10,7 @@ import { useRouter, usePathname } from 'next/navigation';
 export default function Navbar() {
   const { user, logout } = useAuthStore();
   const setSymbol = useMarketStore((s) => s.setSymbol);
+  const triggerLayoutReset = useMarketStore((s) => s.triggerLayoutReset);
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -113,6 +114,14 @@ export default function Navbar() {
             </div>
           )}
         </div>
+
+        <button
+          onClick={triggerLayoutReset}
+          className="p-2 text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-md transition-colors mr-2"
+          title="Reset Dashboard Layout"
+        >
+          <LayoutDashboard className="w-4 h-4" />
+        </button>
 
         <button
           onClick={async () => {
