@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.kafka import kafka_client
 from app.core.redis import redis_client
 from app.services.kafka_consumer import balance_consumer
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,6 +20,7 @@ async def lifespan(app: FastAPI):
     await balance_consumer.stop()
     await kafka_client.stop()
     await redis_client.disconnect()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

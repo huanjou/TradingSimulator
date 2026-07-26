@@ -3,7 +3,7 @@ import uuid
 import structlog
 from aiokafka import AIOKafkaConsumer
 from app.core.config import get_settings
-from app.services.processor import process_orders, process_balances
+from app.services.processor import process_balances, process_orders
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)
@@ -24,7 +24,11 @@ async def consume():
     )
     await consumer.start()
     logger.info(
-        "consumer_started", topics=[settings.KAFKA_ORDER_UPDATES_TOPIC, settings.KAFKA_BALANCE_UPDATES_TOPIC]
+        "consumer_started",
+        topics=[
+            settings.KAFKA_ORDER_UPDATES_TOPIC,
+            settings.KAFKA_BALANCE_UPDATES_TOPIC,
+        ],
     )
     try:
         while True:

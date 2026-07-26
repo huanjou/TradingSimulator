@@ -1,10 +1,12 @@
 import logging
 from typing import Any
+
 import orjson
 from aiokafka import AIOKafkaProducer
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
 
 class KafkaProducerClient:
     def __init__(self):
@@ -32,11 +34,15 @@ class KafkaProducerClient:
 
         # Inject current trace context into headers
         from opentelemetry import propagate
+
         headers_dict = {}
         propagate.inject(headers_dict)
         kafka_headers = [(k, v.encode("utf-8")) for k, v in headers_dict.items()]
 
-        await self.producer.send_and_wait(topic, value=value, key=key, headers=kafka_headers)
+        await self.producer.send_and_wait(
+            topic, value=value, key=key, headers=kafka_headers
+        )
         logger.debug(f"Command published to topic {topic}")
+
 
 kafka_client = KafkaProducerClient()

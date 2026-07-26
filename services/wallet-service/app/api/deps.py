@@ -2,6 +2,7 @@ from app.core.config import settings
 from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
 
+
 def get_current_user_id(request: Request) -> str:
     token: str | None = None
     is_cookie = False

@@ -1,7 +1,9 @@
 import uuid
 from decimal import Decimal
-from sqlalchemy import Column, String, Numeric, UniqueConstraint
+
 from app.db.base_class import Base
+from sqlalchemy import Column, Numeric, String, UniqueConstraint
+
 
 class Balance(Base):
     __tablename__ = "balances"

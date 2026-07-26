@@ -3,15 +3,14 @@ import uuid
 
 import structlog
 from aiokafka import AIOKafkaConsumer
-from opentelemetry import propagate, trace
-
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
+from app.repositories.balance import balance_repo
 from app.repositories.order import order_repo
 from app.repositories.symbol import symbol_repo
 from app.repositories.trade import trade_repo
-from app.repositories.balance import balance_repo
 from app.services.processor import process_orders
+from opentelemetry import propagate, trace
 
 tracer = trace.get_tracer(__name__)
 

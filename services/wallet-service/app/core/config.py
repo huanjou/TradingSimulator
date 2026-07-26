@@ -1,4 +1,3 @@
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,5 +30,6 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     return Settings()
+
 
 settings = get_settings()

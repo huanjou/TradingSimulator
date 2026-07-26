@@ -1,10 +1,10 @@
 import orjson
 import structlog
 from app.core.utils import is_valid_uuid
+from app.repositories.balance import BalanceRepository
 from app.repositories.order import OrderRepository
 from app.repositories.symbol import SymbolRepository
 from app.repositories.trade import TradeRepository
-from app.repositories.balance import BalanceRepository
 from opentelemetry import metrics
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,7 +130,7 @@ async def process_orders(
 
             elif topic == "system_events":
                 system_events.append(data)
-                
+
             elif topic == "balance_updates":
                 user_id = data.get("user_id")
                 currency = data.get("currency")
@@ -207,7 +207,9 @@ async def process_orders(
         if balance_upserts_list and balance_repo:
             try:
                 await balance_repo.upsert_bulk(session, balance_upserts_list)
-                ledger_writes_counter.add(len(balance_upserts_list), {"type": "balance_upsert"})
+                ledger_writes_counter.add(
+                    len(balance_upserts_list), {"type": "balance_upsert"}
+                )
             except Exception as e:
                 logger.warning("bulk_balance_upsert_failed", error=str(e))
                 await session.rollback()

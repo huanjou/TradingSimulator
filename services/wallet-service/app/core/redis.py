@@ -1,5 +1,7 @@
 from collections.abc import AsyncGenerator
+
 from redis.asyncio import Redis, from_url
+
 
 class RedisClient:
     def __init__(self):
@@ -19,7 +21,9 @@ class RedisClient:
             raise RuntimeError("Redis is not initialized")
         yield self.client
 
+
 redis_client = RedisClient()
+
 
 async def get_redis() -> AsyncGenerator[Redis, None]:
     async for client in redis_client.get_client():

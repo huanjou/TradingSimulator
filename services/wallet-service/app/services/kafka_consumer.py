@@ -1,13 +1,15 @@
 import asyncio
-import orjson
 import logging
-from aiokafka import AIOKafkaConsumer
 from decimal import Decimal
+
+import orjson
+from aiokafka import AIOKafkaConsumer
 from app.core.config import settings
 from app.core.redis import redis_client
 from app.repositories.wallet_repository import WalletRepository
 
 logger = logging.getLogger(__name__)
+
 
 class BalanceUpdateConsumer:
     def __init__(self):
@@ -19,7 +21,7 @@ class BalanceUpdateConsumer:
             "balance_updates",
             bootstrap_servers=settings.KAFKA_BROKER,
             group_id="wallet-service-group",
-            auto_offset_reset="earliest"
+            auto_offset_reset="earliest",
         )
         await self.consumer.start()
         logger.info("Kafka Consumer for balance_updates started.")
@@ -47,14 +49,19 @@ class BalanceUpdateConsumer:
                     currency = data["currency"]
                     available = Decimal(data["available"])
                     locked = Decimal(data["locked"])
-                    
-                    await repo.update_wallet_balance(user_id, currency, available, locked)
-                    logger.info(f"Updated balance for user {user_id} currency {currency}")
+
+                    await repo.update_wallet_balance(
+                        user_id, currency, available, locked
+                    )
+                    logger.info(
+                        f"Updated balance for user {user_id} currency {currency}"
+                    )
                 except Exception as e:
                     logger.error(f"Error processing balance update: {e}")
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.error(f"Consumer loop failed: {e}")
+
 
 balance_consumer = BalanceUpdateConsumer()
