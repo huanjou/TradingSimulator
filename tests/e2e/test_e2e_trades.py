@@ -32,6 +32,22 @@ def auth_headers():
 def test_create_and_query_market_order(auth_headers):
     headers, user_id = auth_headers
     orders_url = f"{API_GATEWAY_URL}/orders"
+    wallets_url = f"{API_GATEWAY_URL}/wallets"
+
+    # 0. Deposit funds
+    deposit_payload = {"currency": "USD", "amount": 10000.0}
+    print("\nDepositing funds:", deposit_payload)
+    resp = requests.post(f"{wallets_url}/deposit", json=deposit_payload, headers=headers)
+    assert resp.status_code == 202, f"Failed to deposit: {resp.text}"
+    
+    # Wait for kafka processing
+    time.sleep(2)
+    
+    resp = requests.get(f"{wallets_url}/me", headers=headers)
+    assert resp.status_code == 200
+    wallets = resp.json()
+    assert "USD" in wallets
+    assert wallets["USD"]["available"] >= 10000.0
 
     # 1. Create a market order
     payload = {
@@ -42,7 +58,7 @@ def test_create_and_query_market_order(auth_headers):
         "quantity": 0.5,
     }
 
-    print("\nCreating order:", payload)
+    print("Creating order:", payload)
     resp = requests.post(orders_url, json=payload, headers=headers)
     assert resp.status_code == 202, f"Failed to create order: {resp.text}"
 

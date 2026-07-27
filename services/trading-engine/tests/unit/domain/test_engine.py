@@ -19,7 +19,7 @@ def test_process_market_order_no_price(engine):
         order_type=OrderType.MARKET,
         quantity=Decimal("1.5"),
     )
-    trades, updates = engine.process_order(order)
+    trades, updates, wallet_updates = engine.process_order(order)
 
     assert len(trades) == 0
     assert len(updates) == 1
@@ -37,7 +37,7 @@ def test_process_market_order_with_price(engine):
         order_type=OrderType.MARKET,
         quantity=Decimal("1.5"),
     )
-    trades, updates = engine.process_order(order)
+    trades, updates, wallet_updates = engine.process_order(order)
 
     assert len(trades) == 1
     assert trades[0].price == Decimal("50010")  # BUY at ASK
@@ -63,7 +63,7 @@ def test_process_limit_order_no_cross(engine):
         price=Decimal("49000"),
         quantity=Decimal("1.0"),
     )
-    trades, updates = engine.process_order(order)
+    trades, updates, wallet_updates = engine.process_order(order)
 
     assert len(trades) == 0
     assert len(updates) == 1
@@ -85,7 +85,7 @@ def test_process_limit_order_cross_immediate(engine):
         price=Decimal("49000"),  # Selling lower than Bid (crosses)
         quantity=Decimal("1.0"),
     )
-    trades, updates = engine.process_order(order)
+    trades, updates, wallet_updates = engine.process_order(order)
 
     assert len(trades) == 1
     assert trades[0].price == Decimal("50000")  # SELL at BID
@@ -109,7 +109,7 @@ def test_process_market_data_fills_pending(engine):
     assert len(engine.bids["BTCUSDT"]) == 1
 
     # Price drops to 50000 ask, should fill
-    trades, updates = engine.process_market_data(
+    trades, updates, wallet_updates = engine.process_market_data(
         "BTCUSDT", Decimal("49990"), Decimal("50000")
     )
 
@@ -143,7 +143,7 @@ def test_limit_order_fifo_execution(engine):
     assert len(engine.bids["BTCUSDT"]) == 3
 
     # Market price touches 50000, should fill all 3
-    trades, updates = engine.process_market_data(
+    trades, updates, wallet_updates = engine.process_market_data(
         "BTCUSDT", Decimal("49990"), Decimal("50000")
     )
 
@@ -183,3 +183,79 @@ def test_get_all_pending_orders(engine):
     ids = {order.id for order in all_orders}
     assert "buy1" in ids
     assert "sell1" in ids
+
+def test_process_market_order_rejected_no_balance(engine):
+    engine.process_market_data("BTCUSD", Decimal("50000"), Decimal("50010"))
+    order = Order(
+        id="order_no_bal",
+        user_id="u1",
+        symbol="BTCUSD",
+        side=OrderSide.BUY,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("1.0"),
+    )
+    # User has no balance
+    trades, updates, wallet_updates = engine.process_order(order)
+    
+    assert len(trades) == 0
+    assert len(updates) == 1
+    assert updates[0].status == OrderStatus.REJECTED
+    assert len(wallet_updates) == 0
+
+def test_process_limit_order_locked_balance(engine):
+    engine.process_market_data("BTCUSD", Decimal("50000"), Decimal("50010"))
+    
+    # Give user some balance
+    engine.wallets["u1"]["USD"] = {"available": Decimal("100000"), "locked": Decimal("0")}
+    
+    order = Order(
+        id="order_limit_bal",
+        user_id="u1",
+        symbol="BTCUSD",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        price=Decimal("49000"),
+        quantity=Decimal("1.0"),
+    )
+    trades, updates, wallet_updates = engine.process_order(order)
+    
+    assert len(trades) == 0
+    assert len(updates) == 1
+    assert updates[0].status == OrderStatus.PENDING
+    
+    # 49000 USD should be locked
+    assert engine.wallets["u1"]["USD"]["available"] == Decimal("51000")
+    assert engine.wallets["u1"]["USD"]["locked"] == Decimal("49000")
+    assert len(wallet_updates) == 1
+    assert wallet_updates[0].available == Decimal("51000")
+
+def test_process_market_data_fills_pending_deducts_balance(engine):
+    engine.wallets["u1"] = {"USD": {"available": Decimal("100000"), "locked": Decimal("0")}, "BTC": {"available": Decimal("0"), "locked": Decimal("0")}}
+    
+    order = Order(
+        id="order_fill_bal",
+        user_id="u1",
+        symbol="BTCUSD",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        price=Decimal("50000"),
+        quantity=Decimal("1.0"),
+    )
+    engine.process_order(order)
+    assert engine.wallets["u1"]["USD"]["locked"] == Decimal("50000")
+    
+    trades, updates, wallet_updates = engine.process_market_data(
+        "BTCUSD", Decimal("49990"), Decimal("50000")
+    )
+    
+    assert len(trades) == 1
+    assert updates[0].status == OrderStatus.FILLED
+    
+    # Lock is removed, balance deducted, BTC added
+    assert engine.wallets["u1"]["USD"]["locked"] == Decimal("0")
+    assert engine.wallets["u1"]["USD"]["available"] == Decimal("50000")
+    assert engine.wallets["u1"]["BTC"]["available"] == Decimal("1.0")
+    
+    # It should yield wallet updates for USD and BTC
+    assert len(wallet_updates) >= 2
+

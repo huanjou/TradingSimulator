@@ -37,6 +37,9 @@ async def test_save_snapshot(snapshot_manager, engine, redis_client):
         quantity=Decimal("1.5"),
     )
     engine.process_order(order)
+    
+    # Setup some wallets
+    engine.wallets["u1"] = {"BTC": {"available": Decimal("1.0"), "locked": Decimal("0.5")}}
 
     offsets = {"orders": {"0": 12345}}
 
@@ -51,6 +54,8 @@ async def test_save_snapshot(snapshot_manager, engine, redis_client):
     assert data["offsets"] == {"orders": {"0": 12345}}
     assert len(data["pending_orders"]) == 1
     assert data["pending_orders"][0]["id"] == "test1"
+    assert data["wallets"]["u1"]["BTC"]["available"] == "1.0"
+    assert data["wallets"]["u1"]["BTC"]["locked"] == "0.5"
 
 
 @pytest.mark.asyncio
@@ -66,13 +71,19 @@ async def test_load_latest_snapshot(snapshot_manager, engine, redis_client):
         "price": "3000.0",
         "quantity": "10.0",
     }
+    
+    wallet_data = {
+        "u2": {
+            "ETH": {"available": "5.0", "locked": "10.0"}
+        }
+    }
 
-    snapshot_data = {"offsets": offsets, "pending_orders": [order_data]}
+    snapshot_data = {"offsets": offsets, "pending_orders": [order_data], "wallets": wallet_data}
 
     await redis_client.set(snapshot_manager.snapshot_key, json.dumps(snapshot_data))
 
     # Act
-    orders, loaded_offsets = await snapshot_manager.load_latest_snapshot()
+    orders, loaded_offsets, wallets = await snapshot_manager.load_latest_snapshot()
 
     # Assert
     assert loaded_offsets == offsets
@@ -80,6 +91,9 @@ async def test_load_latest_snapshot(snapshot_manager, engine, redis_client):
     assert orders[0].id == "test2"
     assert orders[0].symbol == "ETHUSDT"
     assert orders[0].price == Decimal("3000.0")
+    
+    assert wallets["u2"]["ETH"]["available"] == Decimal("5.0")
+    assert wallets["u2"]["ETH"]["locked"] == Decimal("10.0")
 
 
 @pytest.mark.asyncio
@@ -88,8 +102,9 @@ async def test_load_empty_snapshot(snapshot_manager, redis_client):
     await redis_client.flushall()
 
     # Act
-    orders, loaded_offsets = await snapshot_manager.load_latest_snapshot()
+    orders, loaded_offsets, wallets = await snapshot_manager.load_latest_snapshot()
 
     # Assert
     assert len(orders) == 0
     assert loaded_offsets == {}
+    assert wallets == {}

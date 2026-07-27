@@ -257,7 +257,6 @@ services:
     environment:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_MARKET_DATA_TOPIC=market_data
-      - MARKET_PROVIDER=binance
       - MARKET_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
       - TESTING=1
       - ENV=test
@@ -266,5 +265,25 @@ services:
         condition: service_healthy
     volumes:
       - ../services/market-data:/app
+    command: >
+      bash -c "pytest -v"
+
+  test-wallet-service:
+    build:
+      context: ../services/wallet-service
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - REDIS_URL=redis://redis:6379/0
+      - TESTING=1
+      - ENV=test
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../services/wallet-service:/app
     command: >
       bash -c "pytest -v"

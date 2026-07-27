@@ -17,7 +17,8 @@ def mock_repos():
     return {
         "order_repo": AsyncMock(),
         "trade_repo": AsyncMock(),
-        "symbol_repo": AsyncMock()
+        "symbol_repo": AsyncMock(),
+        "balance_repo": AsyncMock()
     }
 
 
@@ -91,6 +92,32 @@ async def test_process_orders_update_success(mock_session, mock_repos):
 
     mock_repos["order_repo"].update_status_bulk.assert_called_once()
     mock_session.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_process_balance_updates(mock_session, mock_repos):
+    messages = [
+        MockMessage(
+            {
+                "user_id": "user1",
+                "currency": "USD",
+                "available": "5000.0",
+                "locked": "100.0"
+            }
+        )
+    ]
+
+    await process_orders(messages, session=mock_session, topic="balance_updates", **mock_repos)
+
+    mock_repos["balance_repo"].upsert_bulk.assert_called_once()
+    mock_session.commit.assert_called_once()
+
+    args, _ = mock_repos["balance_repo"].upsert_bulk.call_args
+    assert len(args[1]) == 1
+    assert args[1][0]["user_id"] == "user1"
+    assert args[1][0]["currency"] == "USD"
+    assert args[1][0]["available"] == "5000.0"
+    assert args[1][0]["locked"] == "100.0"
 
 
 @pytest.mark.asyncio

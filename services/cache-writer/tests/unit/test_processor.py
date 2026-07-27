@@ -68,3 +68,24 @@ async def test_process_orders_cache_failure():
 
         with pytest.raises(Exception, match="Redis Down"):
             await process_orders(messages)
+
+
+@pytest.mark.asyncio
+async def test_process_balance_updates():
+    messages = [
+        MockMessage(
+            {
+                "user_id": "user1",
+                "currency": "USD",
+                "available": "500.0",
+                "locked": "10.0"
+            }
+        )
+    ]
+
+    with patch("app.services.processor.cache_service", new_callable=AsyncMock) as mock_cache_service:
+        await process_orders(messages, topic="balance_updates")
+
+        mock_cache_service.update_balance.assert_called_once_with(
+            "user1", "USD", "500.0", "10.0"
+        )
