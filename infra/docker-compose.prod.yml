@@ -44,3 +44,9 @@ services:
 
   ledger:
     restart: always
+
+  user-service:
+    restart: always
+    # Skip create-superuser in prod; rely on migrations and manual setup
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"

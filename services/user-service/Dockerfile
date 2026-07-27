@@ -9,10 +9,8 @@ WORKDIR /app
 COPY --from=requirements-stage /tmp/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY ./app /app/app
+COPY ./alembic /app/alembic
+COPY alembic.ini /app/alembic.ini
 
-# Since user-service shares the users table with ledger-writer, we assume
-# migrations are handled globally or tables are created on startup (or via alembic).
-# For MVP, we will rely on ledger-writer or query-service creating the users table,
-# but it's best to create it if it doesn't exist.
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run database migrations and start the application
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

@@ -8,6 +8,7 @@ from app.core.logging import setup_logging
 from app.core.middleware import setup_middlewares
 from app.core.redis import redis_client
 from app.core.telemetry import setup_opentelemetry
+from app.db.session import engine
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -24,6 +25,9 @@ async def lifespan(app: FastAPI):
 
     # Clean up Redis
     await redis_client.disconnect()
+
+    # Clean up DB
+    await engine.dispose()
 
 
 app = FastAPI(

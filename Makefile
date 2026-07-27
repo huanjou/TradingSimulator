@@ -16,7 +16,7 @@ logs:
 	cd infra && docker compose logs -f
 
 test: test-clean
-	cd infra && docker compose -p test_env -f docker-compose.test.yml up --build -d postgres-primary postgres-replica redis test-kafka trading-engine ledger-writer query-service market-data cache-writer
+	cd infra && docker compose -p test_env -f docker-compose.test.yml up --build -d postgres-primary postgres-replica redis test-kafka trading-engine ledger-writer query-service market-data cache-writer test-wallet-service
 	python -c "import time; time.sleep(10)"
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-api-gateway || (cd .. && make test-clean && exit 1)
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-trading-engine || (cd .. && make test-clean && exit 1)
@@ -24,6 +24,7 @@ test: test-clean
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-query-service || (cd .. && make test-clean && exit 1)
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-market-data || (cd .. && make test-clean && exit 1)
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-cache-writer || (cd .. && make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-wallet-service || (cd .. && make test-clean && exit 1)
 	make test-clean
 
 test-e2e:
