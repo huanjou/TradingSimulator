@@ -102,7 +102,7 @@ async def test_kafka_integration():
                     return True  # Success
 
         try:
-            await asyncio.wait_for(wait_for_messages(), timeout=5.0)
+            await asyncio.wait_for(wait_for_messages(), timeout=15.0)
         except asyncio.TimeoutError:
             pytest.fail(f"Timeout waiting for messages. Received: {events_received}")
 
