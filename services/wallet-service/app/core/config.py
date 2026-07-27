@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +27,15 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
+
+    @model_validator(mode="after")
+    def check_secrets(self) -> "Settings":
+        if (
+            self.ENVIRONMENT == "production"
+            and self.JWT_SECRET == "supersecretjwtkey123"
+        ):
+            raise ValueError("Cannot use default JWT_SECRET in production!")
+        return self
 
 
 def get_settings() -> Settings:

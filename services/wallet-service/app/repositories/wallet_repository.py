@@ -1,5 +1,5 @@
+import logging
 from decimal import Decimal
-from typing import List
 
 import orjson
 from app.core.redis import get_redis
@@ -7,12 +7,14 @@ from app.domain.wallet import WalletEntity
 from fastapi import Depends
 from redis.asyncio import Redis
 
+logger = logging.getLogger(__name__)
+
 
 class WalletRepository:
     def __init__(self, redis: Redis):
         self.redis = redis
 
-    async def get_wallet_balances(self, user_id: str) -> List[WalletEntity]:
+    async def get_wallet_balances(self, user_id: str) -> list[WalletEntity]:
         balances = []
         wallet_key = f"wallet:{user_id}"
         raw_wallet = await self.redis.hgetall(wallet_key)
@@ -31,8 +33,10 @@ class WalletRepository:
                         locked=Decimal(str(data.get("locked", "0"))),
                     )
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(
+                    "Failed to parse wallet data for currency %s: %s", currency, e
+                )
 
         return balances
 

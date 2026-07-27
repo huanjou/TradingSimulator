@@ -19,6 +19,7 @@ aiokafka = "^0.10.0"
 redis = "^8.0.1"
 orjson = "^3.11.9"
 python-jose = {extras = ["cryptography"], version = "^3.5.0"}
+tenacity = "^8.2.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.2"

@@ -4,6 +4,7 @@ from typing import Any
 import orjson
 from aiokafka import AIOKafkaProducer
 from app.core.config import settings
+from opentelemetry import propagate
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class KafkaProducerClient:
             bootstrap_servers=settings.KAFKA_BROKER,
             value_serializer=lambda v: orjson.dumps(v),
             linger_ms=5,
+            acks="all",
         )
         await self.producer.start()
         logger.info("Kafka Producer started successfully.")
@@ -31,9 +33,6 @@ class KafkaProducerClient:
     ):
         if not self.producer:
             raise RuntimeError("Kafka Producer is not initialized. Call start() first.")
-
-        # Inject current trace context into headers
-        from opentelemetry import propagate
 
         headers_dict = {}
         propagate.inject(headers_dict)
