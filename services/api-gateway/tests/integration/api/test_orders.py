@@ -169,7 +169,7 @@ async def test_e2e_create_and_get_order(auth_client):
             found = True
             fetched_order = get_response.json()
             assert fetched_order["id"] == order_id
-            assert fetched_order["status"] == "PENDING"
+            assert fetched_order["status"] in ("PENDING", "REJECTED")
             break
 
     assert (

@@ -33,6 +33,7 @@ pytest-asyncio = "^0.21.1"
 pytest-xdist = "^3.5.0"
 ruff = "^0.4.5"
 factory-boy = "^3.3.3"
+aiosqlite = "^0.22.1"
 
 [build-system]
 requires = ["poetry-core"]

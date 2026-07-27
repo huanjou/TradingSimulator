@@ -26,7 +26,7 @@ async def test_kafka_integration():
 
     try:
         # Create a unique symbol for isolation
-        symbol = f"TEST_{uuid.uuid4().hex[:8]}"
+        symbol = f"TEST{uuid.uuid4().hex[:4]}/USDT"
 
         # We will post market data for this symbol
         market_data = {"symbol": symbol, "bid_price": 50000.0, "ask_price": 50010.0}
@@ -40,6 +40,18 @@ async def test_kafka_integration():
             "order_type": "MARKET",
             "quantity": "5.0",
         }
+
+        # Provide balance to taker
+        deposit_command = {
+            "type": "DEPOSIT",
+            "user_id": "taker",
+            "currency": "USDT",
+            "amount": 500000.0,
+        }
+        await producer.send_and_wait(
+            settings.KAFKA_WALLET_COMMANDS_TOPIC,
+            json.dumps(deposit_command).encode("utf-8"),
+        )
 
         # Publish market data
         await producer.send_and_wait(

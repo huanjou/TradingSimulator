@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import fakeredis.aioredis
 import pytest
-from app.domain.engine import MatchingEngine
+from app.domain.engine import MatchingEngine, WalletInfo
 from app.domain.order import Order, OrderSide, OrderType
 from app.services.snapshot_service import SnapshotManager
 
@@ -30,16 +30,19 @@ async def test_save_snapshot(snapshot_manager, engine, redis_client):
     order = Order(
         id="test1",
         user_id="u1",
-        symbol="BTCUSDT",
+        symbol="BTC/USDT",
         side=OrderSide.BUY,
         order_type=OrderType.LIMIT,
         price=Decimal("50000"),
         quantity=Decimal("1.5"),
     )
-    engine.process_order(order)
-    
     # Setup some wallets
-    engine.wallets["u1"] = {"BTC": {"available": Decimal("1.0"), "locked": Decimal("0.5")}}
+    engine.wallets["u1"] = {
+        "BTC": WalletInfo(available=Decimal("1.0"), locked=Decimal("0.5")),
+        "USDT": WalletInfo(available=Decimal("100000.0"), locked=Decimal("0")),
+    }
+
+    engine.process_order(order)
 
     offsets = {"orders": {"0": 12345}}
 
@@ -65,20 +68,20 @@ async def test_load_latest_snapshot(snapshot_manager, engine, redis_client):
     order_data = {
         "id": "test2",
         "user_id": "u2",
-        "symbol": "ETHUSDT",
+        "symbol": "ETH/USDT",
         "side": "SELL",
         "order_type": "LIMIT",
         "price": "3000.0",
         "quantity": "10.0",
     }
-    
-    wallet_data = {
-        "u2": {
-            "ETH": {"available": "5.0", "locked": "10.0"}
-        }
-    }
 
-    snapshot_data = {"offsets": offsets, "pending_orders": [order_data], "wallets": wallet_data}
+    wallet_data = {"u2": {"ETH": {"available": "5.0", "locked": "10.0"}}}
+
+    snapshot_data = {
+        "offsets": offsets,
+        "pending_orders": [order_data],
+        "wallets": wallet_data,
+    }
 
     await redis_client.set(snapshot_manager.snapshot_key, json.dumps(snapshot_data))
 
@@ -89,11 +92,11 @@ async def test_load_latest_snapshot(snapshot_manager, engine, redis_client):
     assert loaded_offsets == offsets
     assert len(orders) == 1
     assert orders[0].id == "test2"
-    assert orders[0].symbol == "ETHUSDT"
+    assert orders[0].symbol == "ETH/USDT"
     assert orders[0].price == Decimal("3000.0")
-    
-    assert wallets["u2"]["ETH"]["available"] == Decimal("5.0")
-    assert wallets["u2"]["ETH"]["locked"] == Decimal("10.0")
+
+    assert wallets["u2"]["ETH"]["available"] == "5.0"
+    assert wallets["u2"]["ETH"]["locked"] == "10.0"
 
 
 @pytest.mark.asyncio

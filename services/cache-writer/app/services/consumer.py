@@ -15,6 +15,7 @@ async def consume():
     Pulls batches of orders and hands them off to the processor.
     """
     consumer = AIOKafkaConsumer(
+        "orders",
         settings.KAFKA_ORDER_UPDATES_TOPIC,
         settings.KAFKA_BALANCE_UPDATES_TOPIC,
         bootstrap_servers=settings.KAFKA_BROKER,
@@ -26,6 +27,7 @@ async def consume():
     logger.info(
         "consumer_started",
         topics=[
+            "orders",
             settings.KAFKA_ORDER_UPDATES_TOPIC,
             settings.KAFKA_BALANCE_UPDATES_TOPIC,
         ],
@@ -67,7 +69,7 @@ async def consume():
                         kind=trace.SpanKind.CONSUMER,
                     ):
                         logger.info("processing_batch")
-                        if tp.topic == settings.KAFKA_ORDER_UPDATES_TOPIC:
+                        if tp.topic in (settings.KAFKA_ORDER_UPDATES_TOPIC, "orders"):
                             await process_orders(messages, topic=tp.topic)
                         elif tp.topic == settings.KAFKA_BALANCE_UPDATES_TOPIC:
                             await process_balances(messages)

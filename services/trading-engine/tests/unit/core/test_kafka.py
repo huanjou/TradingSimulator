@@ -50,6 +50,7 @@ async def test_consumer_runner_updates_offsets():
     runner = KafkaConsumerRunner(
         order_handler=order_handler,
         market_data_handler=market_data_handler,
+        wallet_commands_handler=AsyncMock(),
         initial_offsets={},
     )
 
