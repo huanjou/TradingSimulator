@@ -1,6 +1,9 @@
 name: Load Tests
 
 on:
+  push:
+    branches:
+      - dev
   workflow_dispatch:
     inputs:
       environment:
