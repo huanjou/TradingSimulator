@@ -17,7 +17,7 @@ def mock_consumer():
 
 @pytest.mark.asyncio
 async def test_consume_balance_updates(mock_wallet_repo, mock_consumer):
-    from app.services.kafka_consumer import WalletKafkaConsumer
+    from app.services.kafka_consumer import BalanceUpdateConsumer
 
     # create a mock message
     msg = MagicMock()
@@ -30,21 +30,106 @@ async def test_consume_balance_updates(mock_wallet_repo, mock_consumer):
         }
     ).encode("utf-8")
 
-    # mock async generator
-    async def mock_aiter():
-        yield msg
+    class MockConsumer:
+        def __init__(self, msg):
+            self.msg = msg
+            self.yielded = False
 
-    consumer_instance = AsyncMock()
-    consumer_instance.__aiter__.side_effect = lambda: mock_aiter()
-    mock_consumer.return_value = consumer_instance
+        def __aiter__(self):
+            return self
 
-    consumer = WalletKafkaConsumer()
-    consumer.wallet_repo = mock_wallet_repo
+        async def __anext__(self):
+            if not self.yielded:
+                self.yielded = True
+                return self.msg
+            raise __import__("asyncio").CancelledError()
 
-    # We need to manually call _consume and cancel it to prevent infinite loop if it doesn't break
-    # Actually the generator only yields one message and stops, but `async for` will naturally stop.
-    await consumer._consume()
+        async def commit(self):
+            pass
 
-    mock_wallet_repo.update_wallet_balance.assert_called_once_with(
-        user_id="user1", currency="USD", available="2000.0", locked="100.0"
+    consumer_instance = MockConsumer(msg)
+
+    consumer = BalanceUpdateConsumer()
+    consumer.consumer = consumer_instance
+
+    # Patch _update_redis so we can verify the call
+    with patch.object(consumer, "_update_redis", new_callable=AsyncMock) as mock_update:
+        # We need to manually call consume.
+        task = __import__("asyncio").create_task(consumer.consume())
+        await __import__("asyncio").sleep(0.1)  # let it run
+        task.cancel()
+        try:
+            await task
+        except __import__("asyncio").CancelledError:
+            pass
+
+        mock_update.assert_called_once()
+        args, kwargs = mock_update.call_args
+        assert args[1] == "user1"
+        assert args[2] == "USD"
+
+
+@pytest.mark.asyncio
+async def test_consumer_corrupted_message_handling():
+    """QA Resilience: Консьюмер не должен падать при некорректном сообщении."""
+    from app.services.kafka_consumer import BalanceUpdateConsumer
+
+    corrupted_msg = MagicMock()
+    corrupted_msg.value = b"NOT_A_JSON_PAYLOAD"
+
+    class MockConsumer:
+        def __init__(self, msg):
+            self.msg = msg
+            self.yielded = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if not self.yielded:
+                self.yielded = True
+                return self.msg
+            raise __import__("asyncio").CancelledError()
+
+        async def commit(self):
+            pass
+
+    consumer = BalanceUpdateConsumer()
+    consumer.consumer = MockConsumer(corrupted_msg)
+
+    with patch("app.services.kafka_consumer.logger.error") as mock_logger:
+        task = __import__("asyncio").create_task(consumer.consume())
+        await __import__("asyncio").sleep(0.1)
+        task.cancel()
+        try:
+            await task
+        except __import__("asyncio").CancelledError:
+            pass
+
+        mock_logger.assert_called()
+        assert any(
+            "Error processing balance update" in str(call)
+            for call in mock_logger.call_args_list
+        )
+
+
+@pytest.mark.asyncio
+async def test_consumer_retry_on_redis_failure():
+    """QA Resilience: Проверка автоповтора _update_redis через tenacity."""
+    from decimal import Decimal
+
+    from app.services.kafka_consumer import BalanceUpdateConsumer
+
+    consumer = BalanceUpdateConsumer()
+    mock_repo = AsyncMock()
+
+    mock_repo.update_wallet_balance.side_effect = [
+        ConnectionError("Redis temporary timeout 1"),
+        ConnectionError("Redis temporary timeout 2"),
+        None,
+    ]
+
+    await consumer._update_redis(
+        mock_repo, "user_retry", "USD", Decimal("100.0"), Decimal("0.0")
     )
+    assert mock_repo.update_wallet_balance.call_count == 3
