@@ -2,7 +2,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.services.processor import process_orders
+from app.services.processor import process_balances, process_orders
 
 
 class MockMessage:
@@ -89,10 +89,17 @@ async def test_process_balance_updates():
     ]
 
     with patch(
-        "app.services.processor.cache_service", new_callable=AsyncMock
-    ) as mock_cache_service:
-        await process_orders(messages, topic="balance_updates")
+        "app.services.cache_service.cache_balances_bulk", new_callable=AsyncMock
+    ) as mock_cache_balances_bulk:
+        await process_balances(messages)
 
-        mock_cache_service.update_balance.assert_called_once_with(
-            "user1", "USD", "500.0", "10.0"
+        mock_cache_balances_bulk.assert_called_once_with(
+            [
+                {
+                    "user_id": "user1",
+                    "currency": "USD",
+                    "available": "500.0",
+                    "locked": "10.0",
+                }
+            ]
         )
