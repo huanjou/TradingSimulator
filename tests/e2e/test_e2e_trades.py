@@ -5,6 +5,7 @@ import requests
 
 API_GATEWAY_URL = "http://localhost:8000/api/v1"
 USER_SERVICE_URL = "http://localhost:8003/api/v1"
+WALLET_SERVICE_URL = "http://localhost:8005/api/v1"
 
 ADMIN_EMAIL = "admin@admin.com"
 ADMIN_PASSWORD = "admin"
@@ -32,7 +33,7 @@ def auth_headers():
 def test_create_and_query_market_order(auth_headers):
     headers, user_id = auth_headers
     orders_url = f"{API_GATEWAY_URL}/orders"
-    wallets_url = f"{API_GATEWAY_URL}/wallets"
+    wallets_url = f"{WALLET_SERVICE_URL}/wallets"
 
     # 0. Deposit funds
     deposit_payload = {"currency": "USD", "amount": 10000.0}
@@ -48,8 +49,11 @@ def test_create_and_query_market_order(auth_headers):
     resp = requests.get(f"{wallets_url}/me", headers=headers)
     assert resp.status_code == 200
     wallets = resp.json()
-    assert "USD" in wallets
-    assert wallets["USD"]["available"] >= 10000.0
+    usd_wallet = next(
+        (b for b in wallets.get("balances", []) if b["currency"] == "USD"), None
+    )
+    assert usd_wallet is not None, f"USD balance not found in {wallets}"
+    assert float(usd_wallet["available"]) >= 10000.0
 
     # 1. Create a market order
     payload = {
@@ -83,7 +87,13 @@ def test_create_and_query_market_order(auth_headers):
         # A market order without counterparty liquidity will be
         # REJECTED or CANCELLED, or FILLED/EXECUTED
         # if there is liquidity
-        if status_data["status"] in ["EXECUTED", "FILLED", "REJECTED", "CANCELLED"]:
+        if status_data["status"] in [
+            "EXECUTED",
+            "FILLED",
+            "REJECTED",
+            "CANCELLED",
+            "CANCELED",
+        ]:
             processed = True
             break
 
