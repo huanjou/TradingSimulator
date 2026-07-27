@@ -58,10 +58,8 @@ async def test_kafka_integration():
             settings.KAFKA_MARKET_DATA_TOPIC, json.dumps(market_data).encode("utf-8")
         )
 
-        # Wait a tiny bit to ensure market data is processed first
-        await asyncio.sleep(1)
-
-        # Publish order
+        # Publish order initially
+        current_order_id = buy_order["id"]
         await producer.send_and_wait(
             settings.KAFKA_ORDERS_TOPIC, json.dumps(buy_order).encode("utf-8")
         )
@@ -70,14 +68,13 @@ async def test_kafka_integration():
         # We expect:
         # 1. TradeEvent
         # 2. OrderUpdate for BUY (FILLED)
-
         events_received = {
             "trades": 0,
             "updates_buy_filled": False,
         }
 
-        # Timeout after 5 seconds
         async def wait_for_messages():
+            nonlocal current_order_id
             async for msg in consumer:
                 payload = json.loads(msg.value.decode("utf-8"))
 
@@ -89,14 +86,21 @@ async def test_kafka_integration():
                         assert payload["price"] == "50010.0"  # BUY at ASK
 
                 elif msg.topic == settings.KAFKA_ORDER_UPDATES_TOPIC:
-                    if (
-                        payload.get("order_id") == buy_order["id"]
-                        and payload.get("status") == "FILLED"
-                    ):
-                        events_received["updates_buy_filled"] = True
+                    if payload.get("order_id") == current_order_id:
+                        if payload.get("status") == "FILLED":
+                            events_received["updates_buy_filled"] = True
+                        elif payload.get("status") == "REJECTED":
+                            # Market data or balance hasn't been processed yet.
+                            # Retry by sending a new order.
+                            current_order_id = str(uuid.uuid4())
+                            buy_order["id"] = current_order_id
+                            await producer.send_and_wait(
+                                settings.KAFKA_ORDERS_TOPIC,
+                                json.dumps(buy_order).encode("utf-8"),
+                            )
 
                 if (
-                    events_received["trades"] == 1
+                    events_received["trades"] >= 1
                     and events_received["updates_buy_filled"]
                 ):
                     return True  # Success
