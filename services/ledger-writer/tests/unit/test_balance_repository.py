@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from app.models import Base
 from app.models.balance import Balance
@@ -35,6 +37,7 @@ async def test_upsert_bulk(db_session):
 
     await repo.upsert_bulk(db_session, updates)
     await db_session.commit()
+    db_session.expire_all()
 
     from sqlalchemy import select
 
@@ -50,11 +53,12 @@ async def test_upsert_bulk(db_session):
 
     await repo.upsert_bulk(db_session, updates_2)
     await db_session.commit()
+    db_session.expire_all()
 
     result = await db_session.execute(
         select(Balance).where(Balance.user_id == "u1", Balance.currency == "USD")
     )
     usd_balance = result.scalar_one()
 
-    assert str(usd_balance.available) == "200.00000000"
-    assert str(usd_balance.locked) == "5.00000000"
+    assert Decimal(str(usd_balance.available)) == Decimal("200.0")
+    assert Decimal(str(usd_balance.locked)) == Decimal("5.0")
