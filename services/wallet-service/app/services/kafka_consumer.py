@@ -1,15 +1,15 @@
 import asyncio
-import logging
 from decimal import Decimal
 
 import orjson
+import structlog
 from aiokafka import AIOKafkaConsumer
 from app.core.config import settings
 from app.core.redis import redis_client
 from app.repositories.wallet_repository import WalletRepository
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class BalanceUpdateConsumer:

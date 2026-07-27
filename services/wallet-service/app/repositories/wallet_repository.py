@@ -1,13 +1,13 @@
-import logging
 from decimal import Decimal
 
 import orjson
+import structlog
 from app.core.redis import get_redis
 from app.domain.wallet import WalletEntity
 from fastapi import Depends
 from redis.asyncio import Redis
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class WalletRepository:

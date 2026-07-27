@@ -1,12 +1,12 @@
-import logging
 from typing import Any
 
 import orjson
+import structlog
 from aiokafka import AIOKafkaProducer
 from app.core.config import settings
 from opentelemetry import propagate
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class KafkaProducerClient:
