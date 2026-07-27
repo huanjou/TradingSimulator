@@ -32,7 +32,7 @@ def get_current_user_id(request: Request) -> str:
             )
 
     try:
-        # Note: wallet-service must have JWT_SECRET set in config, I need to add it to config.py
+        # Decode JWT token using config secret
         payload = jwt.decode(
             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
         )

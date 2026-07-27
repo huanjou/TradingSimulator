@@ -33,8 +33,9 @@ class WalletService:
         if req.amount <= 0:
             raise HTTPException(status_code=400, detail="Deposit amount must be > 0")
 
+        command_id = str(uuid.uuid4())
         command = {
-            "command_id": str(uuid.uuid4()),
+            "command_id": command_id,
             "user_id": user_id,
             "currency": req.currency,
             "amount": str(req.amount),
@@ -48,7 +49,9 @@ class WalletService:
             key=user_id.encode("utf-8"),
         )
 
-        return DepositResponse(status="success", message="Deposit command queued")
+        return DepositResponse(
+            status="success", message="Deposit command queued", command_id=command_id
+        )
 
 
 def get_wallet_service(

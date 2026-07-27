@@ -1,7 +1,7 @@
 from app.api.deps import get_current_user_id
 from app.schemas.wallet import DepositRequest, DepositResponse, WalletsResponse
 from app.services.wallet_service import WalletService, get_wallet_service
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 router = APIRouter()
 
@@ -14,7 +14,9 @@ async def get_my_wallets(
     return await service.get_my_wallets(user_id)
 
 
-@router.post("/deposit", response_model=DepositResponse)
+@router.post(
+    "/deposit", response_model=DepositResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def deposit(
     req: DepositRequest,
     user_id: str = Depends(get_current_user_id),
