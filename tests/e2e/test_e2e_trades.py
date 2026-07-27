@@ -37,12 +37,14 @@ def test_create_and_query_market_order(auth_headers):
     # 0. Deposit funds
     deposit_payload = {"currency": "USD", "amount": 10000.0}
     print("\nDepositing funds:", deposit_payload)
-    resp = requests.post(f"{wallets_url}/deposit", json=deposit_payload, headers=headers)
+    resp = requests.post(
+        f"{wallets_url}/deposit", json=deposit_payload, headers=headers
+    )
     assert resp.status_code == 202, f"Failed to deposit: {resp.text}"
-    
+
     # Wait for kafka processing
     time.sleep(2)
-    
+
     resp = requests.get(f"{wallets_url}/me", headers=headers)
     assert resp.status_code == 200
     wallets = resp.json()

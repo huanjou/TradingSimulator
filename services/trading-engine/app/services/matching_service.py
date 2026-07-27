@@ -118,7 +118,9 @@ class MatchingService:
                 bid = Decimal(str(md.get("bid_price", 0)))
                 ask = Decimal(str(md.get("ask_price", 0)))
 
-                trades, updates, wallet_updates = self.engine.process_market_data(symbol, bid, ask)
+                trades, updates, wallet_updates = self.engine.process_market_data(
+                    symbol, bid, ask
+                )
 
                 trades_executed_counter.add(len(trades), {"symbol": symbol})
 
@@ -187,7 +189,7 @@ class MatchingService:
                     currency = cmd["currency"]
                     amount = Decimal(str(cmd["amount"]))
                     update = self.engine.process_deposit(user_id, currency, amount)
-                    
+
                     update_bytes = orjson.dumps(update.model_dump(mode="json"))
                     publish_futures.append(
                         self.publisher.publish(
@@ -196,8 +198,13 @@ class MatchingService:
                             key=user_id.encode("utf-8"),
                         )
                     )
-                    logger.info("deposit_processed", user_id=user_id, currency=currency, amount=str(amount))
-            
+                    logger.info(
+                        "deposit_processed",
+                        user_id=user_id,
+                        currency=currency,
+                        amount=str(amount),
+                    )
+
             if publish_futures:
                 await asyncio.gather(*publish_futures)
         except Exception as e:

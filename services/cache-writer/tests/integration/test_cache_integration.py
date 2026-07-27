@@ -4,12 +4,12 @@ import uuid
 
 import pytest
 from aiokafka import AIOKafkaProducer
-
 from app.core.config import get_settings
 from app.core.redis import redis_client
 from app.services.consumer import consume
 
 settings = get_settings()
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio
@@ -36,7 +36,7 @@ async def test_cache_writer_integration(kafka_producer: AIOKafkaProducer):
 
     # 3. Start the consumer loop temporarily
     consumer_task = asyncio.create_task(consume())
-    
+
     # Wait for the consumer to process the message (with retry)
     cached_order = None
     for _ in range(10):

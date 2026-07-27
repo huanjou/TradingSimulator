@@ -8,6 +8,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.user import User as DBUser
 from app.repositories.user import UserRepository
 
+
 async def create_superuser(email: str, password: str):
     max_retries = 10
     for attempt in range(max_retries):
@@ -31,12 +32,15 @@ async def create_superuser(email: str, password: str):
                 print(f"Superuser {email} created successfully.")
                 return
         except Exception as e:
-            if "relation \"users\" does not exist" in str(e):
-                print(f"Table 'users' does not exist yet. Retrying in 2 seconds (Attempt {attempt + 1}/{max_retries})...")
+            if 'relation "users" does not exist' in str(e):
+                print(
+                    f"Table 'users' does not exist yet. Retrying in 2 seconds (Attempt {attempt + 1}/{max_retries})..."
+                )
                 await asyncio.sleep(2)
             else:
                 print(f"Error creating superuser: {e}")
                 raise
+
 
 def main():
     parser = argparse.ArgumentParser(description="User Service CLI")
@@ -44,8 +48,14 @@ def main():
 
     # Command: create-superuser
     parser_superuser = subparsers.add_parser("create-superuser")
-    parser_superuser.add_argument("--email", type=str, help="Email of the superuser (or set ADMIN_EMAIL env var)")
-    parser_superuser.add_argument("--password", type=str, help="Password of the superuser (or set ADMIN_PASSWORD env var)")
+    parser_superuser.add_argument(
+        "--email", type=str, help="Email of the superuser (or set ADMIN_EMAIL env var)"
+    )
+    parser_superuser.add_argument(
+        "--password",
+        type=str,
+        help="Password of the superuser (or set ADMIN_PASSWORD env var)",
+    )
 
     args = parser.parse_args()
 
@@ -53,11 +63,14 @@ def main():
         email = args.email or os.getenv("ADMIN_EMAIL")
         password = args.password or os.getenv("ADMIN_PASSWORD")
         if not email or not password:
-            print("Error: --email and --password are required either as arguments or environment variables.")
+            print(
+                "Error: --email and --password are required either as arguments or environment variables."
+            )
             sys.exit(1)
         asyncio.run(create_superuser(email, password))
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

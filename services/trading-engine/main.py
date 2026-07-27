@@ -22,7 +22,11 @@ async def main():
 
     # Recover state (Fail Fast: let it raise Exception if it fails)
     logger.info("recovering_pending_orders_from_snapshot")
-    pending_orders, initial_offsets, wallets_data = await snapshot_manager.load_latest_snapshot()
+    (
+        pending_orders,
+        initial_offsets,
+        wallets_data,
+    ) = await snapshot_manager.load_latest_snapshot()
     engine.restore_orders(pending_orders)
     engine.restore_wallets(wallets_data)
 

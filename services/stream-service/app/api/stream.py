@@ -15,7 +15,10 @@ def get_streamer(request: Request) -> StreamManager:
 @router.get("/stream")
 async def stream_prices(
     request: Request,
-    symbol: str = Query(..., description="Symbol to subscribe to, or comma-separated list (e.g., BTC/USD,ETH/USD)"),
+    symbol: str = Query(
+        ...,
+        description="Symbol to subscribe to, or comma-separated list (e.g., BTC/USD,ETH/USD)",
+    ),
     streamer: StreamManager = Depends(get_streamer),
 ) -> EventSourceResponse:
     """

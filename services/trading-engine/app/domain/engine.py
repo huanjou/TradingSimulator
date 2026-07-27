@@ -3,12 +3,14 @@ import itertools
 from decimal import Decimal
 from typing import Dict, List, Tuple
 
-from .events import OrderUpdateEvent, TradeEvent, BalanceUpdateEvent
+from .events import BalanceUpdateEvent, OrderUpdateEvent, TradeEvent
 from .order import Order, OrderSide, OrderStatus, OrderType
 
 
 class WalletInfo:
-    def __init__(self, available: Decimal = Decimal("0"), locked: Decimal = Decimal("0")):
+    def __init__(
+        self, available: Decimal = Decimal("0"), locked: Decimal = Decimal("0")
+    ):
         self.available = available
         self.locked = locked
 
@@ -32,14 +34,16 @@ class MatchingEngine:
         self.wallets: Dict[str, Dict[str, WalletInfo]] = {}
         self._counter = itertools.count()
 
-    def process_deposit(self, user_id: str, currency: str, amount: Decimal) -> BalanceUpdateEvent:
+    def process_deposit(
+        self, user_id: str, currency: str, amount: Decimal
+    ) -> BalanceUpdateEvent:
         wallet = self._get_wallet(user_id, currency)
         wallet.available += amount
         return BalanceUpdateEvent(
             user_id=user_id,
             currency=currency,
             available=wallet.available,
-            locked=wallet.locked
+            locked=wallet.locked,
         )
 
     def _get_wallet(self, user_id: str, currency: str) -> WalletInfo:
@@ -106,7 +110,7 @@ class MatchingEngine:
                 locked_quote = order.price * order.quantity
                 quote_wallet.locked -= locked_quote
                 cost = price * order.quantity
-                quote_wallet.available += (locked_quote - cost)
+                quote_wallet.available += locked_quote - cost
             else:
                 cost = price * order.quantity
                 quote_wallet.available -= cost
@@ -120,12 +124,22 @@ class MatchingEngine:
             revenue = price * order.quantity
             quote_wallet.available += revenue
 
-        wallet_updates.append(BalanceUpdateEvent(
-            user_id=order.user_id, currency=base, available=base_wallet.available, locked=base_wallet.locked
-        ))
-        wallet_updates.append(BalanceUpdateEvent(
-            user_id=order.user_id, currency=quote, available=quote_wallet.available, locked=quote_wallet.locked
-        ))
+        wallet_updates.append(
+            BalanceUpdateEvent(
+                user_id=order.user_id,
+                currency=base,
+                available=base_wallet.available,
+                locked=base_wallet.locked,
+            )
+        )
+        wallet_updates.append(
+            BalanceUpdateEvent(
+                user_id=order.user_id,
+                currency=quote,
+                available=quote_wallet.available,
+                locked=quote_wallet.locked,
+            )
+        )
 
         trade = TradeEvent(
             order_id=order.id,
@@ -159,7 +173,7 @@ class MatchingEngine:
         base, quote = order.symbol.split("/")
         base_wallet = self._get_wallet(order.user_id, base)
         quote_wallet = self._get_wallet(order.user_id, quote)
-        
+
         market_price = self.market_prices.get(order.symbol)
 
         # Balance checks
@@ -181,7 +195,10 @@ class MatchingEngine:
         if order.status == OrderStatus.REJECTED:
             updates.append(
                 OrderUpdateEvent(
-                    order_id=order.id, user_id=order.user_id, status=order.status, filled_quantity=Decimal("0")
+                    order_id=order.id,
+                    user_id=order.user_id,
+                    status=order.status,
+                    filled_quantity=Decimal("0"),
                 )
             )
             return trades, updates, wallet_updates
@@ -232,16 +249,26 @@ class MatchingEngine:
                     req_quote = order.price * order.quantity
                     quote_wallet.available -= req_quote
                     quote_wallet.locked += req_quote
-                    wallet_updates.append(BalanceUpdateEvent(
-                        user_id=order.user_id, currency=quote, available=quote_wallet.available, locked=quote_wallet.locked
-                    ))
+                    wallet_updates.append(
+                        BalanceUpdateEvent(
+                            user_id=order.user_id,
+                            currency=quote,
+                            available=quote_wallet.available,
+                            locked=quote_wallet.locked,
+                        )
+                    )
                 else:
                     req_base = order.quantity
                     base_wallet.available -= req_base
                     base_wallet.locked += req_base
-                    wallet_updates.append(BalanceUpdateEvent(
-                        user_id=order.user_id, currency=base, available=base_wallet.available, locked=base_wallet.locked
-                    ))
+                    wallet_updates.append(
+                        BalanceUpdateEvent(
+                            user_id=order.user_id,
+                            currency=base,
+                            available=base_wallet.available,
+                            locked=base_wallet.locked,
+                        )
+                    )
 
                 # Store in priority queue
                 self._add_to_book(order)

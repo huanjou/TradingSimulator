@@ -47,10 +47,14 @@ class SnapshotManager:
                 for currency, wallet_info in user_wallets.items():
                     wallets_data[user_id][currency] = {
                         "available": str(wallet_info.available),
-                        "locked": str(wallet_info.locked)
+                        "locked": str(wallet_info.locked),
                     }
 
-            snapshot_data = {"offsets": offsets, "pending_orders": all_orders, "wallets": wallets_data}
+            snapshot_data = {
+                "offsets": offsets,
+                "pending_orders": all_orders,
+                "wallets": wallets_data,
+            }
 
             await self.redis.set(self.snapshot_key, orjson.dumps(snapshot_data))
             logger.info("snapshot_saved", orders_count=len(all_orders), offsets=offsets)

@@ -83,7 +83,11 @@ class KafkaConsumerRunner:
             enable_auto_commit=False,  # Explicitly disable to avoid data loss
         )
         self.consumer.subscribe(
-            [settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC, settings.KAFKA_WALLET_COMMANDS_TOPIC],
+            [
+                settings.KAFKA_ORDERS_TOPIC,
+                settings.KAFKA_MARKET_DATA_TOPIC,
+                settings.KAFKA_WALLET_COMMANDS_TOPIC,
+            ],
             listener=SeekListener(self.consumer, self.initial_offsets),
         )
 
@@ -91,7 +95,11 @@ class KafkaConsumerRunner:
         await self.consumer.start()
         logger.info(
             "kafka_consumer_started",
-            topics=[settings.KAFKA_ORDERS_TOPIC, settings.KAFKA_MARKET_DATA_TOPIC, settings.KAFKA_WALLET_COMMANDS_TOPIC],
+            topics=[
+                settings.KAFKA_ORDERS_TOPIC,
+                settings.KAFKA_MARKET_DATA_TOPIC,
+                settings.KAFKA_WALLET_COMMANDS_TOPIC,
+            ],
         )
 
         try:

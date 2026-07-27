@@ -28,7 +28,7 @@ async def test_consumer_fatal_error_no_commit(mock_session_local, mock_sleep):
     mock_consumer.getmany.return_value = {
         MockTopicPartition(topic="orders"): [MockMessage(offset=10)]
     }
-    
+
     # Mock AsyncSession context manager
     mock_session = AsyncMock()
     mock_session_local.return_value.__aenter__.return_value = mock_session
@@ -42,13 +42,14 @@ async def test_consumer_fatal_error_no_commit(mock_session_local, mock_sleep):
         ) as mock_process:
             with pytest.raises(ValueError, match="Fatal DB Error"):
                 await consume()
-            
+
             # verify process_orders was called 5 times due to retries
             assert mock_process.call_count == 5
 
     # Verify that consumer.commit was NEVER called
     mock_consumer.commit.assert_not_called()
     mock_consumer.stop.assert_awaited_once()
+
 
 @pytest.mark.asyncio
 @patch("app.services.consumer.asyncio.sleep", new_callable=AsyncMock)
@@ -58,6 +59,7 @@ async def test_consumer_retries_and_succeeds(mock_session_local, mock_sleep):
     Test that if process_orders fails temporarily, it retries and then succeeds.
     """
     mock_consumer = AsyncMock()
+
     class MockMessage:
         def __init__(self, offset):
             self.offset = offset
@@ -70,18 +72,16 @@ async def test_consumer_retries_and_succeeds(mock_session_local, mock_sleep):
 
     mock_consumer.getmany.side_effect = [
         {MockTopicPartition(topic="orders"): [MockMessage(offset=10)]},
-        ValueError("Exit Loop")  # Stop the infinite loop
+        ValueError("Exit Loop"),  # Stop the infinite loop
     ]
-    
+
     mock_session = AsyncMock()
     mock_session_local.return_value.__aenter__.return_value = mock_session
 
     # Fail twice, then succeed
-    mock_process_orders = AsyncMock(side_effect=[
-        ValueError("DB Error 1"),
-        ValueError("DB Error 2"),
-        None
-    ])
+    mock_process_orders = AsyncMock(
+        side_effect=[ValueError("DB Error 1"), ValueError("DB Error 2"), None]
+    )
 
     with patch("app.services.consumer.AIOKafkaConsumer", return_value=mock_consumer):
         with patch("app.services.consumer.process_orders", mock_process_orders):

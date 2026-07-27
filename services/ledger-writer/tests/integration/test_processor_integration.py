@@ -2,10 +2,10 @@ import json
 
 import pytest
 from app.models.order import Order
-from app.services.processor import process_orders
 from app.repositories.order import order_repo
-from app.repositories.trade import trade_repo
 from app.repositories.symbol import symbol_repo
+from app.repositories.trade import trade_repo
+from app.services.processor import process_orders
 from sqlalchemy import select
 
 from tests.factories.models import OrderMessageFactory
@@ -30,7 +30,13 @@ async def test_process_orders_integration_success(db_session):
     messages = [MockMessage(payload)]
 
     # 1. Execute the processor
-    await process_orders(messages, session=db_session, order_repo=order_repo, trade_repo=trade_repo, symbol_repo=symbol_repo)
+    await process_orders(
+        messages,
+        session=db_session,
+        order_repo=order_repo,
+        trade_repo=trade_repo,
+        symbol_repo=symbol_repo,
+    )
 
     # 2. Verify against the real database using the same session
     # Check Order
@@ -58,7 +64,13 @@ async def test_process_orders_idempotency(db_session):
     msg = MockMessage(payload)
 
     # Execute processor twice with the same message
-    await process_orders([msg, msg], session=db_session, order_repo=order_repo, trade_repo=trade_repo, symbol_repo=symbol_repo)
+    await process_orders(
+        [msg, msg],
+        session=db_session,
+        order_repo=order_repo,
+        trade_repo=trade_repo,
+        symbol_repo=symbol_repo,
+    )
 
     # Verify only one order exists
     result_order = await db_session.execute(
@@ -84,7 +96,13 @@ async def test_process_orders_poison_pill(db_session):
     # Batch with poison pill first, then valid message
     messages = [PoisonMessage(), valid_msg]
 
-    await process_orders(messages, session=db_session, order_repo=order_repo, trade_repo=trade_repo, symbol_repo=symbol_repo)
+    await process_orders(
+        messages,
+        session=db_session,
+        order_repo=order_repo,
+        trade_repo=trade_repo,
+        symbol_repo=symbol_repo,
+    )
 
     # Verify the valid message was processed
     result_order = await db_session.execute(
@@ -94,6 +112,7 @@ async def test_process_orders_poison_pill(db_session):
     assert order_in_db is not None
     assert str(order_in_db.id) == valid_payload["id"]
 
+
 @pytest.mark.asyncio
 async def test_process_orders_batch_insertion(db_session):
     """
@@ -102,7 +121,13 @@ async def test_process_orders_batch_insertion(db_session):
     payloads = [OrderMessageFactory() for _ in range(5)]
     messages = [MockMessage(p) for p in payloads]
 
-    await process_orders(messages, session=db_session, order_repo=order_repo, trade_repo=trade_repo, symbol_repo=symbol_repo)
+    await process_orders(
+        messages,
+        session=db_session,
+        order_repo=order_repo,
+        trade_repo=trade_repo,
+        symbol_repo=symbol_repo,
+    )
 
     # Verify all orders were inserted
     for p in payloads:

@@ -52,9 +52,6 @@ def mock_kafka():
         yield mock_consumer
 
 
-import pytest_asyncio
-
-
 @pytest_asyncio.fixture
 async def async_client():
     async with AsyncClient(app=app, base_url="http://testserver") as client:

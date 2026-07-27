@@ -86,7 +86,9 @@ class NotificationKafkaConsumer:
                     elif topic == settings.KAFKA_BALANCE_UPDATES_TOPIC:
                         user_id = data.get("user_id")
                         if user_id:
-                            payload = json.dumps({"event": "balance_update", "data": data})
+                            payload = json.dumps(
+                                {"event": "balance_update", "data": data}
+                            )
                             await manager.send_personal_message(payload, user_id)
                             logger.info(
                                 "balance_update_dispatched",

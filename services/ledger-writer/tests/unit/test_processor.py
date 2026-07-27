@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from app.services.processor import process_orders
 
+
 class MockMessage:
     def __init__(self, value_dict=None, raw_value=None):
         if raw_value is not None:
@@ -18,7 +19,7 @@ def mock_repos():
         "order_repo": AsyncMock(),
         "trade_repo": AsyncMock(),
         "symbol_repo": AsyncMock(),
-        "balance_repo": AsyncMock()
+        "balance_repo": AsyncMock(),
     }
 
 
@@ -71,7 +72,9 @@ async def test_process_orders_db_failure(mock_session, mock_repos):
     mock_session.commit.side_effect = Exception("DB Connection Failed")
 
     with pytest.raises(Exception, match="DB Connection Failed"):
-        await process_orders(messages, session=mock_session, topic="orders", **mock_repos)
+        await process_orders(
+            messages, session=mock_session, topic="orders", **mock_repos
+        )
 
     mock_session.rollback.assert_called_once()
 
@@ -88,7 +91,9 @@ async def test_process_orders_update_success(mock_session, mock_repos):
         )
     ]
 
-    await process_orders(messages, session=mock_session, topic="order_updates", **mock_repos)
+    await process_orders(
+        messages, session=mock_session, topic="order_updates", **mock_repos
+    )
 
     mock_repos["order_repo"].update_status_bulk.assert_called_once()
     mock_session.commit.assert_called_once()
@@ -102,12 +107,14 @@ async def test_process_balance_updates(mock_session, mock_repos):
                 "user_id": "user1",
                 "currency": "USD",
                 "available": "5000.0",
-                "locked": "100.0"
+                "locked": "100.0",
             }
         )
     ]
 
-    await process_orders(messages, session=mock_session, topic="balance_updates", **mock_repos)
+    await process_orders(
+        messages, session=mock_session, topic="balance_updates", **mock_repos
+    )
 
     mock_repos["balance_repo"].upsert_bulk.assert_called_once()
     mock_session.commit.assert_called_once()
@@ -140,17 +147,17 @@ async def test_process_orders_poison_pill(mock_session, mock_repos):
                 "status": "OPEN",
             }
         ),
-        MockMessage(raw_value=b"\"justastring\"")  # TypeError/ValueError (not a dict)
+        MockMessage(raw_value=b'"justastring"'),  # TypeError/ValueError (not a dict)
     ]
 
     # Should not raise exception
     await process_orders(messages, session=mock_session, **mock_repos)
-    
+
     # Assertions
     mock_repos["order_repo"].upsert_bulk.assert_called_once()
     # The batch should contain exactly one valid order
     args, _ = mock_repos["order_repo"].upsert_bulk.call_args
     assert len(args[1]) == 1
     assert args[1][0]["id"] == "1049b870-9115-42f0-bc65-bbeaad370d71"
-    
+
     mock_session.commit.assert_called_once()
