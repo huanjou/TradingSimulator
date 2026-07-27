@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import grpc
 import structlog
 from app.api.exceptions import setup_exception_handlers
 from app.api.router import api_router
@@ -16,9 +17,6 @@ setup_logging(settings.LOG_LEVEL)
 logger = structlog.get_logger(__name__)
 
 
-import grpc
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Connect to Kafka
@@ -28,21 +26,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start Kafka client: {e}")
         raise  # Fail fast on critical dependency
-
-    # Startup: Initialize Redis for Custom RateLimiter
-    try:
-        import redis.asyncio as redis
-        from app.api import rate_limiter
-
-        rate_limiter.redis_client = redis.from_url(
-            str(settings.REDIS_URL), encoding="utf-8", decode_responses=True
-        )
-        # Verify redis connection
-        await rate_limiter.redis_client.ping()
-        logger.info("Custom RateLimiter initialized with Redis.")
-    except Exception as e:
-        logger.error(f"Failed to initialize RateLimiter: {e}")
-        raise  # Fail fast
 
     # Startup: Initialize gRPC Channel
     app.state.grpc_channel = grpc.aio.insecure_channel(settings.QUERY_SERVICE_GRPC_URL)

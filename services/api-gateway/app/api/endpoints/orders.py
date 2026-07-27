@@ -2,7 +2,6 @@ import logging
 from typing import Any
 
 from app.api.deps import get_current_user_id
-from app.api.rate_limiter import RateLimiter
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.order import order_service
 from app.services.order_query import order_query_service
@@ -23,7 +22,6 @@ orders_submitted_counter = meter.create_counter(
     "/",
     response_model=OrderResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(RateLimiter(times=10, seconds=1))],
 )
 async def create_order(
     order_in: OrderCreate, current_user_id: str = Depends(get_current_user_id)
@@ -40,7 +38,6 @@ async def create_order(
 
 @router.get(
     "/{order_id}",
-    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
 )
 async def get_order(
     order_id: str, request: Request, current_user_id: str = Depends(get_current_user_id)
@@ -57,7 +54,6 @@ async def get_order(
 
 @router.get(
     "/{order_id}/trades",
-    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
 )
 async def get_order_trades(
     order_id: str, request: Request, current_user_id: str = Depends(get_current_user_id)
@@ -74,7 +70,6 @@ async def get_order_trades(
 
 @router.get(
     "/user/{user_id}",
-    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
 )
 async def get_orders_by_user(
     user_id: str,
@@ -97,7 +92,6 @@ async def get_orders_by_user(
 
 @router.get(
     "/user/{user_id}/trades",
-    dependencies=[Depends(RateLimiter(times=50, seconds=1))],
 )
 async def get_trades_by_user(
     user_id: str,
