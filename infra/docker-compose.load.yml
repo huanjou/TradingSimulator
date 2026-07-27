@@ -41,8 +41,6 @@ services:
       timeout: 5s
       retries: 10
 
-
-
   api-gateway:
     build:
       context: ../services/api-gateway
@@ -56,6 +54,8 @@ services:
       - QUERY_SERVICE_URL=http://query-service:8000
       - QUERY_SERVICE_GRPC_URL=query-service:50051
       - REDIS_URL=redis://test-redis:6379/0
+      - JWT_SECRET=test_secret_for_tests
+      - ENV=test
     depends_on:
       test-db:
         condition: service_healthy
@@ -79,11 +79,14 @@ services:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
+      - REDIS_URL=redis://test-redis:6379/0
+      - ENV=test
     depends_on:
-
       test-db:
         condition: service_healthy
       test-kafka:
+        condition: service_healthy
+      test-redis:
         condition: service_healthy
     volumes:
       - ../services/ledger-writer:/app
@@ -97,6 +100,7 @@ services:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - REDIS_URL=redis://test-redis:6379/0
+      - ENV=test
     depends_on:
       test-redis:
         condition: service_healthy
@@ -113,6 +117,7 @@ services:
     environment:
       - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
       - REDIS_URL=redis://test-redis:6379/0
+      - ENV=test
     depends_on:
       test-db:
         condition: service_healthy
@@ -129,11 +134,100 @@ services:
     environment:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - KAFKA_MARKET_DATA_TOPIC=market_data
+      - REDIS_URL=redis://test-redis:6379/0
+      - ENV=test
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    volumes:
+      - ../services/trading-engine:/app
+
+  market-data:
+    build:
+      context: ../services/market-data
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_MARKET_DATA_TOPIC=market_data
+      - MARKET_PROVIDER=binance
+      - MARKET_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
+      - ENV=test
     depends_on:
       test-kafka:
         condition: service_healthy
     volumes:
-      - ../services/trading-engine:/app
+      - ../services/market-data:/app
+
+  stream-service:
+    build:
+      context: ../services/stream-service
+      dockerfile: Dockerfile
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=test-kafka:9092
+      - MARKET_DATA_TOPIC=market_data
+      - REDIS_URL=redis://test-redis:6379/0
+      - ENV=test
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    volumes:
+      - ../services/stream-service:/app
+
+  notification-ws:
+    build:
+      context: ../services/notification-ws
+      dockerfile: Dockerfile
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_ORDER_UPDATES_TOPIC=order_updates
+      - KAFKA_TRADES_TOPIC=trades
+      - JWT_SECRET=test_secret_for_tests
+      - ENV=test
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+    volumes:
+      - ../services/notification-ws:/app
+
+  user-service:
+    build:
+      context: ../services/user-service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
+      - JWT_SECRET=test_secret_for_tests
+      - ENVIRONMENT=test
+      - ADMIN_EMAIL=admin@admin.com
+      - ADMIN_PASSWORD=admin
+    depends_on:
+      test-db:
+        condition: service_healthy
+    volumes:
+      - ../services/user-service:/app
+
+  wallet-service:
+    build:
+      context: ../services/wallet-service
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - KAFKA_BROKER=test-kafka:9092
+      - KAFKA_WALLET_COMMANDS_TOPIC=wallet_commands
+      - REDIS_URL=redis://test-redis:6379/0
+      - ENVIRONMENT=test
+    depends_on:
+      test-kafka:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    volumes:
+      - ../services/wallet-service:/app
 
   k6:
     image: grafana/k6:latest
@@ -141,7 +235,11 @@ services:
       - ../tests/load:/scripts
     environment:
       - API_URL=http://api-gateway:8000/api/v1/orders
-    command: run /scripts/orders.js
+      - WS_URL=ws://notification-ws:8000/notifications
+      - SSE_URL=http://stream-service:8000/api/v1/stream
+      - USER_SERVICE_URL=http://user-service:8000
+      - WALLET_SERVICE_URL=http://wallet-service:8000
+    command: run /scripts/main.js
     depends_on:
       api-gateway:
         condition: service_healthy

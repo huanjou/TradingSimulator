@@ -1,0 +1,39 @@
+name: Benchmarks
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 0' # Run at 04:00 UTC every Sunday
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start infrastructure
+        run: |
+          make build
+          echo "Waiting for services to be ready..."
+          sleep 20
+
+      - name: Run Trading Engine Core Benchmark
+        run: make benchmark-engine-core
+
+      - name: Run Trading Engine Kafka Benchmark
+        run: make benchmark-engine-kafka
+
+      - name: Run Ledger Writer Benchmark
+        run: make benchmark-ledger
+
+      - name: Cleanup
+        if: always()
+        run: make clean
