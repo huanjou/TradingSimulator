@@ -79,13 +79,19 @@ export default function OrderEntry() {
     if (side === 'BUY') {
       const availableQuote = parseFloat(wallets[quoteCurrency]?.available || '0');
       if (availableQuote < cost) {
-        setError(`Insufficient ${quoteCurrency} balance. Need ~${cost.toFixed(2)}, have ${availableQuote.toFixed(2)}`);
+        setError(
+          `Insufficient ${quoteCurrency} balance. Need ~${cost.toFixed(
+            2,
+          )}, have ${availableQuote.toFixed(2)}`,
+        );
         return;
       }
     } else {
       const availableBase = parseFloat(wallets[baseCurrency]?.available || '0');
       if (availableBase < parsedQuantity) {
-        setError(`Insufficient ${baseCurrency} balance. Need ${parsedQuantity}, have ${availableBase}`);
+        setError(
+          `Insufficient ${baseCurrency} balance. Need ${parsedQuantity}, have ${availableBase}`,
+        );
         return;
       }
     }
@@ -129,7 +135,7 @@ export default function OrderEntry() {
     try {
       await api.post('/api/v1/wallets/deposit', {
         currency: depositCurrency,
-        amount: parseFloat(depositAmount)
+        amount: parseFloat(depositAmount),
       });
       setShowDeposit(false);
     } catch (err) {
@@ -140,69 +146,79 @@ export default function OrderEntry() {
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-y-auto p-4 relative">
-      <h2 className="text-zinc-100 font-semibold text-lg flex items-center justify-between mb-2">
+    <div className="flex flex-col gap-2 h-full overflow-y-auto p-3 relative custom-scrollbar">
+      <h2 className="text-zinc-100 font-semibold text-sm flex items-center justify-between">
         <span>Order Entry</span>
-        <button 
+        <button
           onClick={() => setShowDeposit(true)}
-          className="text-xs flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded transition-colors"
+          className="text-[10px] flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded transition-colors"
         >
           <PlusCircle className="w-3 h-3" />
           Deposit
         </button>
       </h2>
-      <div className="flex items-center justify-between text-zinc-400 text-sm mb-4">
-        <span>{baseCurrency}: <span className="font-mono text-zinc-200">{parseFloat(wallets[baseCurrency]?.available || '0').toFixed(4)}</span></span>
-        <span>{quoteCurrency}: <span className="font-mono text-zinc-200">{parseFloat(wallets[quoteCurrency]?.available || '0').toFixed(2)}</span></span>
+      <div className="flex items-center justify-between text-zinc-400 text-xs">
+        <span>
+          {baseCurrency}:{' '}
+          <span className="font-mono text-zinc-200">
+            {parseFloat(wallets[baseCurrency]?.available || '0').toFixed(4)}
+          </span>
+        </span>
+        <span>
+          {quoteCurrency}:{' '}
+          <span className="font-mono text-zinc-200">
+            {parseFloat(wallets[quoteCurrency]?.available || '0').toFixed(2)}
+          </span>
+        </span>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-sm text-zinc-400">Symbol</label>
-        <div className="bg-zinc-800 text-zinc-100 px-3 py-2 rounded-md font-mono text-sm cursor-not-allowed">
+      <div className="flex flex-col gap-1 mt-1">
+        <label className="text-xs text-zinc-400">Symbol</label>
+        <div className="bg-zinc-800 text-zinc-100 px-2 py-1.5 rounded-md font-mono text-xs cursor-not-allowed">
           {symbol}
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-sm text-zinc-400">Quantity</label>
+      <div className="flex flex-col gap-1 mt-1">
+        <label className="text-xs text-zinc-400">Quantity</label>
         <div className="flex bg-zinc-800 rounded-md overflow-hidden border border-zinc-700 focus-within:border-blue-500 transition-colors">
           <input
             type="number"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
-            className="bg-transparent text-zinc-100 px-3 py-2 w-full outline-none font-mono text-sm placeholder:text-zinc-600"
+            className="bg-transparent text-zinc-100 px-2 py-1.5 w-full outline-none font-mono text-xs placeholder:text-zinc-600"
             placeholder="0.00"
             min="0"
             step="0.01"
           />
-          <span className="text-zinc-500 px-3 py-2 border-l border-zinc-700 text-sm font-semibold flex items-center justify-center bg-zinc-800/50">
+          <span className="text-zinc-500 px-2 py-1.5 border-l border-zinc-700 text-xs font-semibold flex items-center justify-center bg-zinc-800/50">
             {symbol.split('/')[0] || symbol}
           </span>
         </div>
-        {error && <span className="text-red-500 text-xs">{error}</span>}
+        {error && <span className="text-red-500 text-[10px]">{error}</span>}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mt-4">
+      <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
         <button
           onClick={() => submitOrder('BUY')}
           disabled={loading}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-md font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ArrowUpCircle className="w-5 h-5" />
+          <ArrowUpCircle className="w-4 h-4" />
           Buy {baseCurrency}
         </button>
         <button
           onClick={() => submitOrder('SELL')}
           disabled={loading}
-          className="bg-rose-600 hover:bg-rose-500 text-white py-3 rounded-md font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-rose-600 hover:bg-rose-500 text-white py-2 rounded-md font-semibold text-sm transition-colors flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ArrowDownCircle className="w-5 h-5" />
+          <ArrowDownCircle className="w-4 h-4" />
           Sell {baseCurrency}
         </button>
       </div>
 
       {loading && (
-        <div className="text-center text-zinc-500 text-xs animate-pulse">Processing...</div>
+        <div className="text-center text-zinc-500 text-[10px] animate-pulse">Processing...</div>
       )}
 
       {showDeposit && (
@@ -210,16 +226,19 @@ export default function OrderEntry() {
           <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700 shadow-xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-zinc-100 font-semibold">Quick Deposit</h3>
-              <button onClick={() => setShowDeposit(false)} className="text-zinc-400 hover:text-white">
+              <button
+                onClick={() => setShowDeposit(false)}
+                className="text-zinc-400 hover:text-white"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            
+
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Currency</label>
-                <select 
-                  value={depositCurrency} 
+                <select
+                  value={depositCurrency}
                   onChange={(e) => setDepositCurrency(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-100"
                   disabled
@@ -229,14 +248,14 @@ export default function OrderEntry() {
               </div>
               <div>
                 <label className="text-xs text-zinc-400 mb-1 block">Amount</label>
-                <input 
-                  type="number" 
-                  value={depositAmount} 
+                <input
+                  type="number"
+                  value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-sm text-zinc-100"
                 />
               </div>
-              <button 
+              <button
                 onClick={handleDeposit}
                 disabled={depositLoading}
                 className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm font-semibold transition-colors mt-2"

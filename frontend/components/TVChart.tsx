@@ -35,7 +35,8 @@ const TVChart: React.FC<TVChartProps> = ({ theme = 'dark' }) => {
         hide_side_toolbar={false}
         hide_legend={false}
         save_image={false}
-        container_id={`tv_chart_${symbol.replace(/[^a-zA-Z0-9]/g, '')}`}
+        withdateranges={false}
+        container_id={`tv_chart_v2_${symbol.replace(/[^a-zA-Z0-9]/g, '')}`}
         autosize={true}
       />
     </div>

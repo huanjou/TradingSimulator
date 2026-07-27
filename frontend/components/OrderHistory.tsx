@@ -27,14 +27,14 @@ interface Trade {
   timestamp: string;
 }
 
-type TabType = 'open' | 'history' | 'trades';
+type TabType = 'open' | 'history' | 'positions';
 
 export default function OrderHistory() {
   const refreshTrigger = useMarketStore((s) => s.orderRefreshTrigger);
   const [orders, setOrders] = useState<Order[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('trades');
+  const [activeTab, setActiveTab] = useState<TabType>('positions');
   const [prices, setPrices] = useState<Record<string, number>>({});
 
   const newOrderPayload = useMarketStore((s) => s.newOrderPayload);
@@ -191,8 +191,17 @@ export default function OrderHistory() {
               );
             });
           } else if (msg.event === 'balance_update') {
-            // Instantly fetch wallets to reflect new balance
-            useWalletStore.getState().fetchWallets();
+            const update = msg.data;
+            useWalletStore.setState((state) => ({
+              wallets: {
+                ...state.wallets,
+                [update.currency]: {
+                  currency: update.currency,
+                  available: String(update.available),
+                  locked: String(update.locked),
+                },
+              },
+            }));
           }
         } catch (err) {
           console.error('Failed to parse websocket message', err);
@@ -251,6 +260,51 @@ export default function OrderHistory() {
     return [];
   }, [orders, activeTab]);
 
+  const positions = useMemo(() => {
+    const posMap: Record<string, { quantity: number; totalCost: number }> = {};
+
+    // Sort oldest to newest to replay trades
+    const sortedTrades = [...trades].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
+
+    sortedTrades.forEach((trade) => {
+      const order = orders.find((o) => o.id === trade.order_id);
+      const side = order ? order.side : '-';
+
+      if (side === '-') return;
+
+      if (!posMap[trade.symbol]) {
+        posMap[trade.symbol] = { quantity: 0, totalCost: 0 };
+      }
+
+      const pos = posMap[trade.symbol];
+      if (side === 'BUY') {
+        pos.quantity += trade.quantity;
+        pos.totalCost += trade.price * trade.quantity;
+      } else if (side === 'SELL') {
+        if (pos.quantity > 0) {
+          const avgPrice = pos.totalCost / pos.quantity;
+          pos.quantity -= trade.quantity;
+          pos.totalCost -= avgPrice * trade.quantity;
+
+          if (pos.quantity < 0.000001) {
+            pos.quantity = 0;
+            pos.totalCost = 0;
+          }
+        }
+      }
+    });
+
+    return Object.entries(posMap)
+      .filter(([_, pos]) => pos.quantity > 0)
+      .map(([symbol, pos]) => ({
+        symbol,
+        quantity: pos.quantity,
+        avgPrice: pos.totalCost / pos.quantity,
+      }));
+  }, [trades, orders]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'FILLED':
@@ -268,31 +322,19 @@ export default function OrderHistory() {
     }
   };
 
-  const calculateTradePnL = (trade: Trade) => {
-    const currentPrice = prices[trade.symbol];
-    if (!currentPrice) return null;
-
-    // Join with order to get side
-    const order = orders.find((o) => o.id === trade.order_id);
-    if (!order) return null;
-
-    const diff = order.side === 'BUY' ? currentPrice - trade.price : trade.price - currentPrice;
-    return diff * trade.quantity;
-  };
-
   return (
     <div className="h-full flex flex-col p-4">
       <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2">
         <div className="flex gap-6">
           <button
-            onClick={() => setActiveTab('trades')}
+            onClick={() => setActiveTab('positions')}
             className={`font-semibold text-sm pb-2 -mb-2.5 border-b-2 transition-colors ${
-              activeTab === 'trades'
+              activeTab === 'positions'
                 ? 'text-zinc-100 border-emerald-500'
                 : 'text-zinc-500 border-transparent hover:text-zinc-300'
             }`}
           >
-            Trades
+            Positions
           </button>
           <button
             onClick={() => setActiveTab('open')}
@@ -321,18 +363,20 @@ export default function OrderHistory() {
         <table className="w-full text-sm text-left">
           <thead className="text-xs text-zinc-500 uppercase sticky top-0 bg-zinc-900 z-10">
             <tr>
-              <th className="py-3 px-2 font-medium">Time</th>
+              {activeTab !== 'positions' && <th className="py-3 px-2 font-medium">Time</th>}
               <th className="py-3 px-2 font-medium">Pair</th>
-              {activeTab !== 'trades' && <th className="py-3 px-2 font-medium">Type</th>}
-              {activeTab === 'trades' && <th className="py-3 px-2 font-medium">Side</th>}
+              {activeTab !== 'positions' && <th className="py-3 px-2 font-medium">Type</th>}
               <th className="py-3 px-2 font-medium text-right">
-                {activeTab === 'trades' ? 'Price' : 'Req. Price'}
+                {activeTab === 'positions' ? 'Avg Price' : 'Req. Price'}
               </th>
-              {activeTab !== 'trades' && (
+              {activeTab === 'positions' && (
+                <th className="py-3 px-2 font-medium text-right">Cur Price</th>
+              )}
+              {activeTab !== 'positions' && (
                 <th className="py-3 px-2 font-medium text-right">Exec. Price</th>
               )}
               <th className="py-3 px-2 font-medium text-right">Amount</th>
-              {activeTab === 'trades' ? (
+              {activeTab === 'positions' ? (
                 <th className="py-3 px-2 font-medium text-right">PnL</th>
               ) : (
                 <th className="py-3 px-2 font-medium text-right">Status</th>
@@ -340,43 +384,32 @@ export default function OrderHistory() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/50">
-            {activeTab === 'trades' ? (
-              trades.length === 0 && !loading ? (
+            {activeTab === 'positions' ? (
+              positions.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-zinc-500">
-                    No trades found
+                  <td colSpan={5} className="text-center py-8 text-zinc-500">
+                    No open positions
                   </td>
                 </tr>
               ) : (
-                trades.map((trade) => {
-                  const pnl = calculateTradePnL(trade);
-                  const order = orders.find((o) => o.id === trade.order_id);
-                  const side = order ? order.side : '-';
+                positions.map((pos) => {
+                  const currentPrice = prices[pos.symbol];
+                  let pnl: number | null = null;
+                  if (currentPrice) {
+                    pnl = (currentPrice - pos.avgPrice) * pos.quantity;
+                  }
 
                   return (
-                    <tr key={trade.id} className="hover:bg-zinc-800/30 transition-colors">
-                      <td className="py-3 px-2 text-zinc-400 whitespace-nowrap">
-                        {trade.timestamp
-                          ? format(new Date(trade.timestamp), 'HH:mm:ss')
-                          : '--:--:--'}
-                      </td>
-                      <td className="py-3 px-2 text-zinc-200 font-medium">{trade.symbol}</td>
-                      <td
-                        className={`py-3 px-2 font-semibold ${
-                          side === 'BUY'
-                            ? 'text-emerald-500'
-                            : side === 'SELL'
-                              ? 'text-rose-500'
-                              : 'text-zinc-500'
-                        }`}
-                      >
-                        {side}
+                    <tr key={pos.symbol} className="hover:bg-zinc-800/30 transition-colors">
+                      <td className="py-3 px-2 text-zinc-200 font-medium">{pos.symbol}</td>
+                      <td className="py-3 px-2 text-zinc-300 text-right font-mono">
+                        ${pos.avgPrice.toFixed(2)}
                       </td>
                       <td className="py-3 px-2 text-zinc-300 text-right font-mono">
-                        ${trade.price.toFixed(2)}
+                        {currentPrice ? `$${currentPrice.toFixed(2)}` : '--'}
                       </td>
                       <td className="py-3 px-2 text-zinc-300 text-right font-mono">
-                        {trade.quantity}
+                        {parseFloat(pos.quantity.toFixed(6))}
                       </td>
                       <td
                         className={`py-3 px-2 text-right font-mono font-medium ${

@@ -226,7 +226,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => router.push(`/?symbol=${symbol.name}`)}
+                        onClick={() => router.push(`/?market=${symbol.name}`)}
                         className="px-4 py-2 bg-zinc-800 hover:bg-emerald-600 hover:text-white text-zinc-300 rounded-lg text-xs font-medium transition-colors opacity-0 group-hover:opacity-100"
                       >
                         Trade

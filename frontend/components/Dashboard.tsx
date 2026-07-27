@@ -5,7 +5,7 @@ import OrderEntry from '@/components/OrderEntry';
 import OrderHistory from '@/components/OrderHistory';
 import Navbar from '@/components/Navbar';
 import { useMarketStore } from '@/store/useMarketStore';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 // @ts-ignore - Type resolution issue with Next.js
 import {
@@ -40,19 +40,21 @@ const generateDefaultLayout = (): Layout[] => {
   }
 
   // Calculate available rows to fit the screen without scrolling
-  // Offsets: Navbar (~80px) + Padding (~24px) + Container margins (~16px) = ~120px
-  const availableHeight = window.innerHeight - 120;
+  // Offsets: Navbar (~64px) + Padding (~24px) + Container margins (~16px) = ~104px
+  // We subtract 135px to mathematically guarantee that grid rows never snap perfectly to
+  // the edge of the window in a way that causes a 1px border subpixel overflow scrollbar.
+  const availableHeight = window.innerHeight - 135;
 
-  // Each row is 40px + 16px margin = 56px (except last row doesn't add margin to total container height, but grid math: height = rows * rowHeight + (rows - 1) * margin = rows * 56 - 16)
+  // Each row is 40px + 16px margin = 56px
   const totalRows = Math.floor((availableHeight + 16) / 56);
 
-  const bottomRows = 7;
+  const bottomRows = 6;
   const chartRows = Math.max(6, totalRows - bottomRows);
 
   return [
     { i: 'chart', x: 0, y: 0, w: 12, h: chartRows, minW: 4, minH: 6 },
     { i: 'order-history', x: 0, y: chartRows, w: 10, h: bottomRows, minW: 4, minH: 5 },
-    { i: 'order-entry', x: 10, y: chartRows, w: 2, h: bottomRows, minW: 2, minH: 7 },
+    { i: 'order-entry', x: 10, y: chartRows, w: 2, h: bottomRows, minW: 2, minH: 6 },
   ];
 };
 
@@ -61,22 +63,35 @@ export default function Dashboard() {
   const layoutResetTrigger = useMarketStore((s) => s.layoutResetTrigger);
   const setSymbol = useMarketStore((s) => s.setSymbol);
   const currentSymbol = useMarketStore((s) => s.symbol);
-  
+
   const [layouts, setLayouts] = useState<Layouts>({ lg: [] }); // Init empty, set in useEffect
   const [mounted, setMounted] = useState(false);
-  
+
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
-    const urlSymbol = searchParams.get('symbol');
+    // TradingView's embed script reads ?symbol= from the page URL and
+    // overrides the widget config.  We use ?market= instead so TV never
+    // sees our param.  If someone arrives with the old ?symbol= link we
+    // migrate them silently.
+    const oldParam = searchParams.get('symbol');
+    const newParam = searchParams.get('market');
+    const urlSymbol = newParam || oldParam;
+
     if (urlSymbol && urlSymbol !== currentSymbol) {
       setSymbol(urlSymbol);
     }
-  }, [searchParams, currentSymbol, setSymbol]);
+
+    // Strip ?symbol= from URL so TradingView cannot hijack it
+    if (oldParam) {
+      router.replace(urlSymbol ? `/?market=${urlSymbol}` : '/');
+    }
+  }, [searchParams, currentSymbol, setSymbol, router]);
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem('dashboard-layouts');
+    const saved = localStorage.getItem('dashboard-layouts-v8');
     if (saved) {
       try {
         setLayouts(JSON.parse(saved));
@@ -93,13 +108,13 @@ export default function Dashboard() {
     if (layoutResetTrigger > 0) {
       const defaultLayouts = { lg: generateDefaultLayout() };
       setLayouts(defaultLayouts);
-      localStorage.setItem('dashboard-layouts', JSON.stringify(defaultLayouts));
+      localStorage.setItem('dashboard-layouts-v8', JSON.stringify(defaultLayouts));
     }
   }, [layoutResetTrigger]);
 
   const onLayoutChange = (currentLayout: Layout[], allLayouts: Layouts) => {
     setLayouts(allLayouts);
-    localStorage.setItem('dashboard-layouts', JSON.stringify(allLayouts));
+    localStorage.setItem('dashboard-layouts-v8', JSON.stringify(allLayouts));
   };
 
   // Prevent flash: show skeleton until Zustand has loaded persisted state from localStorage
@@ -135,7 +150,10 @@ export default function Dashboard() {
             data-grid={{ minW: 4, minH: 8 }}
             className="flex flex-col bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
           >
-            <div className="drag-handle h-6 bg-zinc-800/50 hover:bg-zinc-800 flex items-center justify-center cursor-move transition-colors shrink-0">
+            <div
+              className="drag-handle h-6 bg-zinc-800/50 hover:bg-zinc-800 flex items-center justify-center cursor-move transition-colors shrink-0"
+              style={{ touchAction: 'none' }}
+            >
               <GripHorizontal className="w-4 h-4 text-zinc-500 pointer-events-none" />
             </div>
             <div className="flex-1 min-h-0 relative">
@@ -145,10 +163,13 @@ export default function Dashboard() {
 
           <div
             key="order-entry"
-            data-grid={{ minW: 2, minH: 7 }}
+            data-grid={{ minW: 2, minH: 6 }}
             className="flex flex-col bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
           >
-            <div className="drag-handle h-6 bg-zinc-800/50 hover:bg-zinc-800 flex items-center justify-center cursor-move transition-colors shrink-0">
+            <div
+              className="drag-handle h-6 bg-zinc-800/50 hover:bg-zinc-800 flex items-center justify-center cursor-move transition-colors shrink-0"
+              style={{ touchAction: 'none' }}
+            >
               <GripHorizontal className="w-4 h-4 text-zinc-500 pointer-events-none" />
             </div>
             <div className="flex-1 min-h-0 relative">
@@ -161,7 +182,10 @@ export default function Dashboard() {
             data-grid={{ minW: 4, minH: 5 }}
             className="flex flex-col bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
           >
-            <div className="drag-handle h-6 bg-zinc-800/50 hover:bg-zinc-800 flex items-center justify-center cursor-move transition-colors shrink-0">
+            <div
+              className="drag-handle h-6 bg-zinc-800/50 hover:bg-zinc-800 flex items-center justify-center cursor-move transition-colors shrink-0"
+              style={{ touchAction: 'none' }}
+            >
               <GripHorizontal className="w-4 h-4 text-zinc-500 pointer-events-none" />
             </div>
             <div className="flex-1 min-h-0 relative overflow-hidden">

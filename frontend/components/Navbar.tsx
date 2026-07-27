@@ -52,7 +52,7 @@ export default function Navbar() {
     setSymbol(symbol);
 
     // Navigate to update URL which will trigger state sync in Dashboard
-    router.push(`/?symbol=${symbol}`);
+    router.push(`/?market=${symbol}`);
   };
 
   return (
