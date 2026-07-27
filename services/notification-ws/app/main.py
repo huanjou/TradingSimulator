@@ -4,10 +4,10 @@ import structlog
 from app.api import ws
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.core.middleware import setup_middlewares
 from app.core.telemetry import setup_opentelemetry
 from app.services.kafka_consumer import notification_consumer
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 settings = get_settings()
 
@@ -38,12 +38,6 @@ app = FastAPI(
 
 setup_opentelemetry(app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+setup_middlewares(app)
 
 app.include_router(ws.router, tags=["websocket"])

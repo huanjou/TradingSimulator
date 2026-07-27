@@ -2,11 +2,11 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
 from app.api.stream import router as stream_router
 from app.core.config import settings
+from app.core.middleware import setup_middlewares
 from app.core.telemetry import setup_opentelemetry
 from app.services.kafka_worker import kafka_worker
 from app.services.streamer import StreamManager
@@ -41,13 +41,7 @@ app = FastAPI(
 
 setup_opentelemetry(app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+setup_middlewares(app)
 
 app.include_router(stream_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")

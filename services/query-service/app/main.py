@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import structlog
 from app.api.router import api_router
 from app.core.logging import setup_logging
+from app.core.middleware import setup_middlewares
 from app.core.telemetry import setup_opentelemetry
 from app.grpc_server import serve_grpc
 from fastapi import FastAPI
@@ -22,5 +23,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Query Service", version="0.1.0", lifespan=lifespan)
 setup_opentelemetry(app)
+setup_middlewares(app)
 
 app.include_router(api_router, prefix="/api/v1")
