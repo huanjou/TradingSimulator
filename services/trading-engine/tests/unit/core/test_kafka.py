@@ -42,6 +42,22 @@ async def test_seek_listener_no_initial_offset():
 
 
 @pytest.mark.asyncio
+async def test_seek_listener_seek_to_end_on_cold_start():
+    # Cold start (rehydrated from Postgres): skip the backlog by seeking to head.
+    consumer_mock = MagicMock()
+    consumer_mock.seek_to_end = AsyncMock()
+
+    listener = SeekListener(consumer_mock, {"orders": {"0": 5}}, seek_to_end=True)
+
+    tp = TopicPartition("orders", 0)
+    await listener.on_partitions_assigned([tp])
+
+    # We must jump to the end and NOT replay from any stored offset.
+    consumer_mock.seek_to_end.assert_awaited_once_with(tp)
+    consumer_mock.seek.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_consumer_runner_updates_offsets():
     # Mock handlers
     order_handler = AsyncMock()
@@ -70,8 +86,6 @@ async def test_consumer_runner_updates_offsets():
     tp1 = TopicPartition("orders", 0)
     msg1 = MockMsg("orders", 0, 50, b'{"id": "1"}')
     msg2 = MockMsg("orders", 0, 51, b'{"id": "2"}')
-
-    batch = {tp1: [msg1, msg2]}
 
     # Act
     await runner._process_batch(tp1, [msg1, msg2])

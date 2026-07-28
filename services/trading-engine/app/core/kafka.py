@@ -33,14 +33,25 @@ class KafkaPublisher:
 
 
 class SeekListener(ConsumerRebalanceListener):
-    def __init__(self, consumer, initial_offsets):
+    def __init__(self, consumer, initial_offsets, seek_to_end: bool = False):
         self.consumer = consumer
         self.initial_offsets = initial_offsets or {}
+        # When rehydrating from Postgres (no snapshot), the durable ledger
+        # already reflects all previously applied history, so we resume from the
+        # HEAD of the log instead of replaying it against the fresh state.
+        self.seek_to_end = seek_to_end
 
     async def on_partitions_revoked(self, revoked):
         pass
 
     async def on_partitions_assigned(self, assigned):
+        if self.seek_to_end:
+            await self.consumer.seek_to_end(*assigned)
+            logger.warning(
+                "cold_start_seek_to_end",
+                partitions=[f"{tp.topic}:{tp.partition}" for tp in assigned],
+            )
+            return
         for tp in assigned:
             topic = tp.topic
             partition = str(tp.partition)
@@ -65,11 +76,13 @@ class KafkaConsumerRunner:
         market_data_handler: Callable[[list[dict]], Awaitable[None]],
         wallet_commands_handler: Callable[[list[dict]], Awaitable[None]],
         initial_offsets: dict = None,
+        seek_to_end: bool = False,
     ):
         self.order_handler = order_handler
         self.market_data_handler = market_data_handler
         self.wallet_commands_handler = wallet_commands_handler
         self.initial_offsets = initial_offsets or {}
+        self.seek_to_end = seek_to_end
         # Deep copy to maintain state
         self.current_offsets = {
             t: {p: o for p, o in parts.items()}
@@ -88,7 +101,9 @@ class KafkaConsumerRunner:
                 settings.KAFKA_MARKET_DATA_TOPIC,
                 settings.KAFKA_WALLET_COMMANDS_TOPIC,
             ],
-            listener=SeekListener(self.consumer, self.initial_offsets),
+            listener=SeekListener(
+                self.consumer, self.initial_offsets, seek_to_end=self.seek_to_end
+            ),
         )
 
     async def start(self):

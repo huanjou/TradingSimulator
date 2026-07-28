@@ -23,15 +23,21 @@ async def periodic_snapshot_task(
 
 
 class SnapshotManager:
-    def __init__(self, redis_client: Redis):
+    def __init__(self, redis_client: Redis, durable_store=None):
         self.redis = redis_client
+        # Optional durable (Postgres) mirror of the snapshot. When present, the
+        # exact (wallets, pending_orders, offsets) triple is persisted there too,
+        # so a cold start with a lost Redis snapshot can resume from the precise
+        # offsets instead of guessing with seek_to_end.
+        self.durable_store = durable_store
         self.snapshot_key = "trading_engine:snapshot"
 
     async def save_snapshot(
         self, engine: MatchingEngine, offsets: Dict[str, Dict[str, int]]
     ) -> None:
         """
-        Saves a snapshot of the engine's pending orders and the latest processed Kafka offsets.
+        Saves a snapshot of the engine's pending orders and the latest processed
+        Kafka offsets.
         Offsets format expected: {topic: {partition: offset}}
         """
         try:
@@ -51,7 +57,12 @@ class SnapshotManager:
                     }
 
             snapshot_data = {
-                "offsets": offsets,
+                # Deep-copy offsets so the persisted snapshot is a consistent
+                # point-in-time pair of (wallets, pending_orders, offsets).
+                # The whole block below runs without an await until redis.set,
+                # so no consumer batch can interleave and desync state vs.
+                # offsets -> replaying from these offsets can never double-apply.
+                "offsets": {t: dict(parts) for t, parts in offsets.items()},
                 "pending_orders": all_orders,
                 "wallets": wallets_data,
             }
@@ -60,6 +71,17 @@ class SnapshotManager:
             logger.info("snapshot_saved", orders_count=len(all_orders), offsets=offsets)
         except Exception as e:
             logger.error("failed_to_save_snapshot", error=str(e), exc_info=True)
+            return
+
+        # Mirror to durable Postgres storage as a separate, best-effort step:
+        # a Postgres hiccup must never take down the primary Redis snapshot path.
+        if self.durable_store is not None:
+            try:
+                await self.durable_store.save(snapshot_data)
+            except Exception as e:
+                logger.error(
+                    "failed_to_save_durable_snapshot", error=str(e), exc_info=True
+                )
 
     async def load_latest_snapshot(
         self,
@@ -85,6 +107,7 @@ class SnapshotManager:
             return orders, offsets, wallets_data
         except Exception as e:
             logger.error("failed_to_load_snapshot", error=str(e), exc_info=True)
-            # If snapshot is corrupted, return empty to not crash forever, or crash to investigate?
+            # If snapshot is corrupted, return empty to not crash forever,
+            # or crash to investigate?
             # Crashing is safer for deterministic recovery.
             raise

@@ -1,10 +1,18 @@
 import heapq
 import itertools
+import uuid
 from decimal import Decimal
 from typing import Dict, List, Tuple
 
 from .events import BalanceUpdateEvent, OrderUpdateEvent, TradeEvent
 from .order import Order, OrderSide, OrderStatus, OrderType
+
+# Fixed namespace so a given order always maps to the SAME trade id. On restart
+# the engine may re-process an order it had already matched (its Kafka offset was
+# committed but not yet snapshotted); a deterministic id makes the trade
+# projection idempotent via on_conflict_do_nothing(trade.id) in ledger-writer,
+# preventing duplicate trade rows / double-counted history.
+_TRADE_ID_NAMESPACE = uuid.UUID("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d")
 
 
 class WalletInfo:
@@ -142,6 +150,7 @@ class MatchingEngine:
         )
 
         trade = TradeEvent(
+            id=str(uuid.uuid5(_TRADE_ID_NAMESPACE, order.id)),
             order_id=order.id,
             user_id=order.user_id,
             symbol=order.symbol,

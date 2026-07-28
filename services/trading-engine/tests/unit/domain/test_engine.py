@@ -278,3 +278,63 @@ def test_process_market_data_fills_pending_deducts_balance(engine):
 
     # It should yield wallet updates for USD and BTC
     assert len(wallet_updates) >= 2
+
+
+def test_trade_id_is_deterministic_per_order(engine):
+    """Re-processing the same order must yield the SAME trade id.
+
+    This is what makes trade projection idempotent on restart: if the engine
+    re-matches an order whose offset was committed but not yet snapshotted, the
+    ledger dedupes it via on_conflict_do_nothing(trade.id) instead of writing a
+    duplicate trade.
+    """
+    engine.process_market_data("BTC/USDT", Decimal("50000"), Decimal("50010"))
+    order = Order(
+        id="deterministic-order-1",
+        user_id="u1",
+        symbol="BTC/USDT",
+        side=OrderSide.BUY,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("1.0"),
+    )
+    trades_a, _, _ = engine.process_order(order)
+
+    # A fresh engine re-processing an identical order (same id) -> same trade id.
+    engine_b = MatchingEngine()
+    engine_b.wallets["u1"] = {
+        "BTC": WalletInfo(available=Decimal("1000000"), locked=Decimal("0")),
+        "USDT": WalletInfo(available=Decimal("1000000"), locked=Decimal("0")),
+    }
+    engine_b.process_market_data("BTC/USDT", Decimal("50000"), Decimal("50010"))
+    order_replay = Order(
+        id="deterministic-order-1",
+        user_id="u1",
+        symbol="BTC/USDT",
+        side=OrderSide.BUY,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("1.0"),
+    )
+    trades_b, _, _ = engine_b.process_order(order_replay)
+
+    assert len(trades_a) == 1
+    assert len(trades_b) == 1
+    assert trades_a[0].id == trades_b[0].id
+    # Different orders must not collide.
+    assert trades_a[0].id != str(engine._counter)
+
+
+def test_trade_ids_differ_across_orders(engine):
+    engine.process_market_data("BTC/USDT", Decimal("50000"), Decimal("50010"))
+    ids = set()
+    for i in range(3):
+        order = Order(
+            id=f"order-{i}",
+            user_id="u1",
+            symbol="BTC/USDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.MARKET,
+            quantity=Decimal("1.0"),
+        )
+        trades, _, _ = engine.process_order(order)
+        ids.add(trades[0].id)
+    assert len(ids) == 3
