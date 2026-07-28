@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.kafka import kafka_client
 from app.core.logging import setup_logging
 from app.core.middleware import setup_middlewares
+from app.core.redis import redis_client
 from app.core.telemetry import setup_opentelemetry
 from fastapi import FastAPI
 
@@ -27,6 +28,9 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to start Kafka client: {e}")
         raise  # Fail fast on critical dependency
 
+    # Startup: Initialize Redis (lazy connection, used for per-user rate limits)
+    await redis_client.connect(str(settings.REDIS_URL))
+
     # Startup: Initialize gRPC Channel
     app.state.grpc_channel = grpc.aio.insecure_channel(settings.QUERY_SERVICE_GRPC_URL)
     logger.info("gRPC channel initialized.")
@@ -36,6 +40,7 @@ async def lifespan(app: FastAPI):
     # Shutdown: Disconnect dependencies
     logger.info("Shutting down API Gateway...")
     await app.state.grpc_channel.close()
+    await redis_client.disconnect()
     await kafka_client.stop()
 
 

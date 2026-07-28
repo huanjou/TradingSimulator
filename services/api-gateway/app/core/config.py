@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # Cache
     REDIS_URL: AnyUrl = "redis://redis:6379"
 
+    # Rate limiting (per authenticated user, order placement)
+    ORDER_RATE_LIMIT_MAX_REQUESTS: int = 10
+    ORDER_RATE_LIMIT_WINDOW_SECONDS: int = 1
+
     # Auth
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"

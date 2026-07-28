@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from app.api.deps import get_current_user_id, get_request_token
+from app.core.rate_limit import UserRateLimiter, get_order_rate_limiter
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.order import order_service
 from app.services.order_query import order_query_service
@@ -24,12 +25,15 @@ orders_submitted_counter = meter.create_counter(
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def create_order(
-    order_in: OrderCreate, current_user_id: str = Depends(get_current_user_id)
+    order_in: OrderCreate,
+    current_user_id: str = Depends(get_current_user_id),
+    rate_limiter: UserRateLimiter = Depends(get_order_rate_limiter),
 ) -> Any:
     """
     Create a new trading order.
     Returns 202 Accepted as the order is accepted for processing via Kafka.
     """
+    await rate_limiter.check(current_user_id, "order")
     orders_submitted_counter.add(
         1, {"symbol": order_in.symbol, "side": order_in.side.value}
     )
