@@ -1524,6 +1524,22 @@ tests = ["freezegun (>=0.2.8)", "pretend", "pytest (>=6.0)", "pytest-asyncio (>=
 typing = ["mypy (>=1.4)", "rich", "twisted"]
 
 [[package]]
+name = "tenacity"
+version = "8.5.0"
+description = "Retry code until it succeeds"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "tenacity-8.5.0-py3-none-any.whl", hash = "sha256:b594c2a5945830c267ce6b79a166228323ed52718f30302c1359836112346687"},
+    {file = "tenacity-8.5.0.tar.gz", hash = "sha256:8bc6c0c8a09b31e6cad13c47afbed1a567518250a9a171418582ed8d9c20ca78"},
+]
+
+[package.extras]
+doc = ["reno", "sphinx"]
+test = ["pytest", "tornado (>=4.5)", "typeguard"]
+
+[[package]]
 name = "typing-extensions"
 version = "4.16.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -1978,4 +1994,4 @@ type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "fb3592b7fa8f336d1169bf0f43438ed63c7c5a173b2b2982eefb337f73057c57"
+content-hash = "9f7d6ce43ce38cb72a3569076a4dc006eeba4142867411436058669109fd81c7"

@@ -1,6 +1,6 @@
 import orjson
 import structlog
-from app.services.cache_service import cache_orders_bulk
+from app.services.cache_service import REDIS_ERRORS, cache_orders_bulk
 from opentelemetry import metrics
 
 logger = structlog.get_logger(__name__)
@@ -51,7 +51,23 @@ async def process_orders(messages, topic: str = "orders"):
             cache_dicts.append(cache_dict)
 
         if cache_dicts:
-            await cache_orders_bulk(cache_dicts)
+            try:
+                await cache_orders_bulk(cache_dicts)
+            except REDIS_ERRORS as e:
+                # Redis is down after all retries: drop the batch and let the
+                # consumer commit the offset anyway so the pipeline never
+                # stalls. The data stays safe in Postgres via ledger-writer
+                # (eventual consistency once Redis is back).
+                cache_write_errors_counter.add(1, {"reason": "redis_unavailable"})
+                logger.error(
+                    "cache_batch_dropped_redis_unavailable",
+                    error=str(e),
+                    topic=topic,
+                    batch_size=len(cache_dicts),
+                    order_ids=[d.get("id") or d.get("order_id") for d in cache_dicts],
+                    exc_info=True,
+                )
+                return
             cache_writes_counter.add(len(cache_dicts), {"type": "cache_upsert"})
 
     except Exception as e:
@@ -75,7 +91,21 @@ async def process_balances(messages):
                 )
                 continue
         if cache_dicts:
-            await cache_balances_bulk(cache_dicts)
+            try:
+                await cache_balances_bulk(cache_dicts)
+            except REDIS_ERRORS as e:
+                # Same trade-off as orders: commit the offset to avoid an
+                # indefinite stall; Postgres remains the source of truth.
+                cache_write_errors_counter.add(1, {"reason": "redis_unavailable"})
+                logger.error(
+                    "cache_batch_dropped_redis_unavailable",
+                    error=str(e),
+                    topic="balances",
+                    batch_size=len(cache_dicts),
+                    users=[(d.get("user_id"), d.get("currency")) for d in cache_dicts],
+                    exc_info=True,
+                )
+                return
             cache_writes_counter.add(
                 len(cache_dicts), {"type": "cache_upsert_balances"}
             )
