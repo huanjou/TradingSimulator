@@ -1,8 +1,9 @@
 import enum
 import uuid
+from decimal import Decimal
 
 from app.db.base_class import Base
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, String
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -35,10 +36,10 @@ class Order(Base):
     symbol = Column(String, nullable=False, index=True)
     side = Column(Enum(SideChoice), nullable=False)
     order_type = Column(Enum(OrderTypeChoice), nullable=False)
-    quantity = Column(Float, nullable=False)
-    filled_quantity = Column(Float, nullable=False, default=0.0)
-    price = Column(Float, nullable=True)  # Optional for MARKET orders
-    average_fill_price = Column(Float, nullable=True)
+    quantity = Column(Numeric, nullable=False)
+    filled_quantity = Column(Numeric, nullable=False, default=Decimal("0"))
+    price = Column(Numeric, nullable=True)  # Optional for MARKET orders
+    average_fill_price = Column(Numeric, nullable=True)
 
     status = Column(
         Enum(OrderStatusChoice), default=OrderStatusChoice.PENDING, nullable=False
