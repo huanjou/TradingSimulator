@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     # Auth
     JWT_SECRET: SecretStr
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # short-lived; renewed via refresh token
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     @model_validator(mode="after")
     def validate_jwt_secret_length(self) -> "Settings":

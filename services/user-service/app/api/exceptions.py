@@ -1,5 +1,9 @@
 from app.core.rate_limit import TooManyAttemptsException
-from app.services.auth import InvalidCredentialsException, UserAlreadyExistsException
+from app.services.auth import (
+    InvalidCredentialsException,
+    InvalidRefreshTokenException,
+    UserAlreadyExistsException,
+)
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -22,6 +26,15 @@ async def invalid_credentials_exception_handler(
     )
 
 
+async def invalid_refresh_token_exception_handler(
+    request: Request, exc: InvalidRefreshTokenException
+):
+    return JSONResponse(
+        status_code=401,
+        content={"detail": str(exc)},
+    )
+
+
 async def too_many_attempts_exception_handler(
     request: Request, exc: TooManyAttemptsException
 ):
@@ -37,6 +50,9 @@ def setup_exception_handlers(app: FastAPI):
     )
     app.add_exception_handler(
         InvalidCredentialsException, invalid_credentials_exception_handler
+    )
+    app.add_exception_handler(
+        InvalidRefreshTokenException, invalid_refresh_token_exception_handler
     )
     app.add_exception_handler(
         TooManyAttemptsException, too_many_attempts_exception_handler

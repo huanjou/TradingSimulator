@@ -8,6 +8,7 @@ import {
   useAuthStore,
   User,
 } from '../store/useAuthStore';
+import { setOnAuthFailure } from '../lib/axios';
 import AuthScreen from './AuthScreen';
 
 export default function AuthProvider({
@@ -26,6 +27,15 @@ export default function AuthProvider({
       isInitializing: false,
     });
   }
+
+  // 2. When a token refresh fails, the session is over: clear auth state so
+  // AuthGate falls back to the login screen.
+  useEffect(() => {
+    setOnAuthFailure(() => {
+      storeRef.current?.setState({ user: null, isAuthenticated: false });
+    });
+    return () => setOnAuthFailure(null);
+  }, []);
 
   return (
     <AuthStoreContext.Provider value={storeRef.current}>

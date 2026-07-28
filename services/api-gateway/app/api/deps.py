@@ -46,6 +46,13 @@ def get_current_user_id(request: Request) -> str:
         payload = jwt.decode(
             token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
         )
+        # Refresh tokens (type="refresh") must never be accepted as access
+        # tokens. Legacy access tokens carry no "type" claim and still pass.
+        if payload.get("type") == "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+            )
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(

@@ -61,3 +61,8 @@ class Token(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: str | None = None
+
+
+class RefreshTokenPayload(BaseModel):
+    sub: str | None = None
+    version: int | None = None

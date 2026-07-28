@@ -3,7 +3,9 @@ from app.core.redis import get_redis
 from app.db.session import get_db
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from app.services.auth import (
+    InvalidRefreshTokenException,
     login_user_service,
+    refresh_access_token_service,
     register_user_service,
 )
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -11,6 +13,10 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
+
+# The refresh cookie is scoped to this exact path so browsers only send it
+# to the refresh endpoint, never with regular API requests.
+REFRESH_COOKIE_PATH = "/api/v1/auth/refresh"
 
 
 def _client_ip(request: Request) -> str:
@@ -39,13 +45,14 @@ async def login(
 ):
     result = await login_user_service(db, user_in, redis, _client_ip(request))
 
-    # If remember_me is True, set cookie to 30 days. Otherwise Session Cookie.
+    # If remember_me is True, cookies persist for the refresh token lifetime.
+    # Otherwise they are session cookies (cleared when the browser closes).
     if user_in.remember_me:
-        cookie_max_age = 30 * 24 * 60 * 60
+        cookie_max_age = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     else:
         cookie_max_age = None
 
-    # Set HTTP-only cookie for access token
+    # Set HTTP-only cookie for the short-lived access token
     response.set_cookie(
         key="access_token",
         value=result["access_token"],
@@ -54,6 +61,18 @@ async def login(
         samesite="strict",
         secure=settings.COOKIE_SECURE,
         path="/",
+    )
+
+    # Set HTTP-only cookie for the refresh token, scoped to the refresh
+    # endpoint only so it is not sent with every request.
+    response.set_cookie(
+        key="refresh_token",
+        value=result["refresh_token"],
+        httponly=True,
+        max_age=cookie_max_age,
+        samesite="strict",
+        secure=settings.COOKIE_SECURE,
+        path=REFRESH_COOKIE_PATH,
     )
 
     # Set non-HTTP-only cookie for CSRF token so JS can read it
@@ -76,11 +95,43 @@ async def login(
     }
 
 
+@router.post("/refresh")
+async def refresh(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise InvalidRefreshTokenException("No refresh token")
+
+    new_access_token = await refresh_access_token_service(db, refresh_token)
+
+    # Session cookie: after a browser restart the client re-authenticates via
+    # the refresh cookie anyway (it is persistent only with remember_me).
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        samesite="strict",
+        secure=settings.COOKIE_SECURE,
+        path="/",
+    )
+    return {"status": "refreshed"}
+
+
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie(
         key="access_token",
         path="/",
+        secure=settings.COOKIE_SECURE,
+        httponly=True,
+        samesite="strict",
+    )
+    response.delete_cookie(
+        key="refresh_token",
+        path=REFRESH_COOKIE_PATH,
         secure=settings.COOKIE_SECURE,
         httponly=True,
         samesite="strict",
