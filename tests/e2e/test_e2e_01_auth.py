@@ -33,7 +33,9 @@ def test_login_user_success_and_cookies(new_user_factory):
     )
     assert resp.status_code == 200, f"Login failed: {resp.text}"
     data = resp.json()
-    assert "access_token" in data
+    # The access token must NOT be exposed in the response body; it lives only
+    # in the httpOnly cookie (checked below) to defend against XSS token theft.
+    assert "access_token" not in data
     assert data["token_type"] == "bearer"
     assert data["user_id"] == user["user_id"]
 

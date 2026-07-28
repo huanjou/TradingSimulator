@@ -91,10 +91,16 @@ export default function (data) {
     },
   };
 
-  // 1. Connect to WebSocket to receive notifications
-  const wsUrlWithToken = `${WS_URL}?token=${data.token}`;
+  // 1. Connect to WebSocket to receive notifications.
+  // The token is sent via the access_token cookie (query-string tokens are
+  // rejected by the server for security reasons).
+  const wsParams = {
+    headers: Object.assign({}, params.headers, {
+      Cookie: `access_token=${data.token}`,
+    }),
+  };
 
-  const resWS = ws.connect(wsUrlWithToken, params, function (socket) {
+  const resWS = ws.connect(WS_URL, wsParams, function (socket) {
     socket.on("open", () => {
       // 2. While WS is open, create the order
       const createRes = http.post(

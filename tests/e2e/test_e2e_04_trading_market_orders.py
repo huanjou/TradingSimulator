@@ -1,5 +1,12 @@
+import time
+
 import requests
-from conftest import API_GATEWAY_URL, wait_for_balance, wait_for_order_status
+from conftest import (
+    API_GATEWAY_URL,
+    wait_for_balance,
+    wait_for_order_status,
+    wait_for_trades,
+)
 
 
 def test_market_buy_and_sell_order_flow(new_user_factory):
@@ -32,13 +39,8 @@ def test_market_buy_and_sell_order_flow(new_user_factory):
     ], f"BUY order failed or cancelled: {filled_buy}"
     assert float(filled_buy["average_fill_price"]) > 0
 
-    # 4. Check trades for this order
-    trades_resp = requests.get(
-        f"{API_GATEWAY_URL}/orders/{buy_id}/trades", headers=headers
-    )
-    assert trades_resp.status_code == 200
-    trades = trades_resp.json()
-    assert len(trades) >= 1
+    # 4. Check trades for this order (trades projection lags order status)
+    trades = wait_for_trades(headers, buy_id, min_count=1)
     assert trades[0]["order_id"] == buy_id
     assert float(trades[0]["quantity"]) == 0.5
 
@@ -71,13 +73,19 @@ def test_market_buy_and_sell_order_flow(new_user_factory):
         "EXECUTED",
     ], f"SELL order failed: {filled_sell}"
 
-    # 8. Check user trade history contains both BUY and SELL trades
-    history_resp = requests.get(
-        f"{API_GATEWAY_URL}/orders/user/{user_id}/trades", headers=headers
-    )
-    assert history_resp.status_code == 200
-    user_trades = history_resp.json()
-    assert len(user_trades) >= 2
-    order_ids_in_history = [t["order_id"] for t in user_trades]
+    # 8. Check user trade history contains both BUY and SELL trades.
+    #    The trades projection is async, so poll until both appear.
+    deadline = time.time() + 15
+    order_ids_in_history: list = []
+    while time.time() < deadline:
+        history_resp = requests.get(
+            f"{API_GATEWAY_URL}/orders/user/{user_id}/trades", headers=headers
+        )
+        assert history_resp.status_code == 200
+        user_trades = history_resp.json()
+        order_ids_in_history = [t["order_id"] for t in user_trades]
+        if buy_id in order_ids_in_history and sell_id in order_ids_in_history:
+            break
+        time.sleep(0.5)
     assert buy_id in order_ids_in_history
     assert sell_id in order_ids_in_history

@@ -65,6 +65,31 @@ def wait_for_order_status(
     raise TimeoutError(msg)
 
 
+def wait_for_trades(
+    headers: dict, order_id: str, min_count: int = 1, timeout: int = 15
+) -> list:
+    """
+    Polls the order trades endpoint until at least min_count trades are
+    projected. The trades read-model is updated asynchronously and may lag
+    slightly behind the order status flipping to FILLED, so reading it once
+    immediately after FILLED is racy.
+    """
+    start_time = time.time()
+    url = f"{API_GATEWAY_URL}/orders/{order_id}/trades"
+    trades: list = []
+    while time.time() - start_time < timeout:
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            trades = resp.json()
+            if len(trades) >= min_count:
+                return trades
+        time.sleep(0.5)
+    raise TimeoutError(
+        f"Order {order_id} did not project {min_count} trade(s) within "
+        f"{timeout}s (last count: {len(trades)})."
+    )
+
+
 @pytest.fixture(scope="session")
 def admin_headers():
     """
@@ -75,7 +100,9 @@ def admin_headers():
     resp = requests.post(login_url, json=payload)
     assert resp.status_code == 200, f"Admin login failed: {resp.text}"
     data = resp.json()
-    return {"Authorization": f"Bearer {data['access_token']}"}, data["user_id"]
+    # The access token now lives ONLY in the httpOnly cookie, not the body.
+    token = resp.cookies.get("access_token")
+    return {"Authorization": f"Bearer {token}"}, data["user_id"]
 
 
 @pytest.fixture
@@ -107,8 +134,10 @@ def new_user_factory():
         assert (
             login_resp.status_code == 200
         ), f"Failed to login user {email}: {login_resp.text}"
-        login_data = login_resp.json()
-        headers = {"Authorization": f"Bearer {login_data['access_token']}"}
+
+        # The access token now lives ONLY in the httpOnly cookie, not the body.
+        access_token = login_resp.cookies.get("access_token")
+        headers = {"Authorization": f"Bearer {access_token}"}
 
         # Deposit initial balances if specified
         if deposit_usd > 0:
@@ -138,7 +167,7 @@ def new_user_factory():
             "password": password,
             "user_id": user_id,
             "headers": headers,
-            "access_token": login_data["access_token"],
+            "access_token": access_token,
         }
 
     return _create_user

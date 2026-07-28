@@ -23,7 +23,8 @@ def auth_headers():
     assert resp.status_code == 200, f"Login failed: {resp.text}"
 
     data = resp.json()
-    token = data["access_token"]
+    # The access token now lives ONLY in the httpOnly cookie, not the body.
+    token = resp.cookies.get("access_token")
     user_id = data["user_id"]
 
     headers = {"Authorization": f"Bearer {token}"}
