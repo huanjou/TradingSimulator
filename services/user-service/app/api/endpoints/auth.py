@@ -1,14 +1,24 @@
 from app.core.config import settings
+from app.core.redis import get_redis
 from app.db.session import get_db
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from app.services.auth import (
     login_user_service,
     register_user_service,
 )
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
+
+
+def _client_ip(request: Request) -> str:
+    """Resolve the real client IP when running behind the nginx proxy."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 @router.post(
@@ -21,9 +31,13 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login")
 async def login(
-    response: Response, user_in: UserLogin, db: AsyncSession = Depends(get_db)
+    request: Request,
+    response: Response,
+    user_in: UserLogin,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    result = await login_user_service(db, user_in)
+    result = await login_user_service(db, user_in, redis, _client_ip(request))
 
     # If remember_me is True, set cookie to 30 days. Otherwise Session Cookie.
     if user_in.remember_me:
@@ -53,8 +67,10 @@ async def login(
         path="/",
     )
 
+    # The access token lives ONLY in the HTTP-only cookie above. It is
+    # intentionally NOT returned in the response body so it cannot be read
+    # by JavaScript (defends against XSS token theft).
     return {
-        "access_token": result["access_token"],
         "token_type": "bearer",
         "user_id": str(result["user"].id),
     }
