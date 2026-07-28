@@ -1,4 +1,4 @@
-from pydantic import PostgresDsn, SecretStr
+from pydantic import PostgresDsn, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     JWT_SECRET: SecretStr
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    @model_validator(mode="after")
+    def validate_jwt_secret_length(self) -> "Settings":
+        if self.ENVIRONMENT == "production":
+            if len(self.JWT_SECRET.get_secret_value()) < 32:
+                raise ValueError(
+                    "JWT_SECRET must be at least 32 characters in production"
+                )
+        return self
 
     @property
     def COOKIE_SECURE(self) -> bool:
