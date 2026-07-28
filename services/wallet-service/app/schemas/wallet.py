@@ -19,6 +19,9 @@ class DepositResponse(BaseModel):
     status: str
     message: str
     command_id: str
+    # Per-user monotonic version of this balance change; clients pass it as
+    # depends_on_balance_version on subsequent orders for causal ordering.
+    balance_version: int | None = None
 
 
 class WalletBalance(BaseModel):

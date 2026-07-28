@@ -11,7 +11,7 @@ import Decimal from 'decimal.js';
 export default function OrderEntry() {
   const { user } = useAuthStore();
   const { symbol, refreshOrders, currentPrice, setCurrentPrice } = useMarketStore();
-  const { wallets, fetchWallets } = useWalletStore();
+  const { wallets, fetchWallets, balanceVersion, setBalanceVersion } = useWalletStore();
   const [quantity, setQuantity] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -106,6 +106,9 @@ export default function OrderEntry() {
         side,
         order_type: 'MARKET',
         quantity: parsedQuantity,
+        // Causal ordering: the engine waits for the latest seen deposit
+        // before validating funds (null -> no dependency).
+        depends_on_balance_version: balanceVersion,
       });
       setQuantity('');
       useMarketStore.getState().setNewOrderPayload(response.data);
@@ -133,10 +136,13 @@ export default function OrderEntry() {
     if (!user?.id) return;
     setDepositLoading(true);
     try {
-      await api.post('/api/v1/wallets/deposit', {
+      const response = await api.post('/api/v1/wallets/deposit', {
         currency: depositCurrency,
         amount: parseFloat(depositAmount),
       });
+      if (typeof response.data?.balance_version === 'number') {
+        setBalanceVersion(response.data.balance_version);
+      }
       setShowDeposit(false);
     } catch (err) {
       console.error(err);

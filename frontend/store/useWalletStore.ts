@@ -9,13 +9,18 @@ export interface Wallet {
 
 export interface WalletState {
   wallets: Record<string, Wallet>;
+  // Latest balance_version returned by a deposit; sent with orders as
+  // depends_on_balance_version so the engine applies the deposit first.
+  balanceVersion: number | null;
   isLoading: boolean;
   error: string | null;
   fetchWallets: () => Promise<void>;
+  setBalanceVersion: (version: number) => void;
 }
 
 export const useWalletStore = create<WalletState>()((set) => ({
   wallets: {},
+  balanceVersion: null,
   isLoading: false,
   error: null,
   fetchWallets: async () => {
@@ -34,5 +39,10 @@ export const useWalletStore = create<WalletState>()((set) => ({
         isLoading: false,
       });
     }
+  },
+  setBalanceVersion: (version: number) => {
+    set((state) => ({
+      balanceVersion: Math.max(state.balanceVersion ?? 0, version),
+    }));
   },
 }));

@@ -40,6 +40,11 @@ class MatchingEngine:
         self.asks: Dict[str, List[Tuple[Decimal, int, Order]]] = {}
         # user_id -> currency -> WalletInfo
         self.wallets: Dict[str, Dict[str, WalletInfo]] = {}
+        # user_id -> latest processed balance version. Wallet commands carry a
+        # per-user monotonic balance_version; orders may declare a
+        # depends_on_balance_version so they are deferred until the funding
+        # deposit has been applied (see MatchingService).
+        self.user_balance_versions: Dict[str, int] = {}
         self._counter = itertools.count()
 
     def process_deposit(
@@ -82,6 +87,11 @@ class MatchingEngine:
                 wallet = self._get_wallet(user_id, currency)
                 wallet.available = Decimal(str(wallet_info.get("available", "0")))
                 wallet.locked = Decimal(str(wallet_info.get("locked", "0")))
+
+    def restore_balance_versions(self, versions_data: Dict[str, int]) -> None:
+        """Hydrates the engine state with per-user balance versions."""
+        for user_id, version in versions_data.items():
+            self.user_balance_versions[user_id] = int(version)
 
     def _add_to_book(self, order: Order):
         """Helper to add an order to the correct priority queue."""

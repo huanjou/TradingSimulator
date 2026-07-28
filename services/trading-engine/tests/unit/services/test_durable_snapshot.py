@@ -101,17 +101,19 @@ async def test_load_returns_exact_offsets_and_state(fake_pool):
             }
         ],
         "wallets": {"user-1": {"USD": {"available": "100.50", "locked": "10.00"}}},
+        "balance_versions": {"user-1": 4},
     }
     # asyncpg returns jsonb as a str by default.
     fake_pool["row"] = {"data": orjson.dumps(snapshot).decode()}
 
     s = DurableSnapshotStore("postgresql://u:p@host:5432/db")
     await s.connect()
-    orders, offsets, wallets = await s.load()
+    orders, offsets, wallets, balance_versions = await s.load()
 
     # Exact offsets are preserved for a precise (non seek_to_end) resume.
     assert offsets == {"orders": {"0": 41}, "wallet_commands": {"0": 40}}
     assert wallets["user-1"]["USD"] == {"available": "100.50", "locked": "10.00"}
+    assert balance_versions == {"user-1": 4}
     assert len(orders) == 1
     assert orders[0].id == "order-1"
     assert orders[0].price == Decimal("50000")
@@ -122,7 +124,8 @@ async def test_load_returns_empty_when_no_row(fake_pool):
     fake_pool["row"] = None
     s = DurableSnapshotStore("postgresql://u:p@host:5432/db")
     await s.connect()
-    orders, offsets, wallets = await s.load()
+    orders, offsets, wallets, balance_versions = await s.load()
     assert orders == []
     assert offsets == {}
     assert wallets == {}
+    assert balance_versions == {}

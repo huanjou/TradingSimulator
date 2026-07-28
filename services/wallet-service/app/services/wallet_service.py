@@ -34,6 +34,11 @@ class WalletService:
             raise HTTPException(status_code=400, detail="Deposit amount must be > 0")
 
         command_id = str(uuid.uuid4())
+        # Monotonically increasing per-user version. The trading-engine uses it to
+        # causally order this deposit ahead of any order that was placed after it
+        # (deposits and orders travel through separate Kafka topics, so an order
+        # can otherwise be processed before its funding deposit).
+        balance_version = await self.repository.next_balance_version(user_id)
         command = {
             "command_id": command_id,
             "user_id": user_id,
@@ -41,6 +46,7 @@ class WalletService:
             "amount": str(req.amount),
             "timestamp": time.time(),
             "type": "DEPOSIT",
+            "balance_version": balance_version,
         }
 
         await kafka_client.send_command(
@@ -50,7 +56,10 @@ class WalletService:
         )
 
         return DepositResponse(
-            status="success", message="Deposit command queued", command_id=command_id
+            status="success",
+            message="Deposit command queued",
+            command_id=command_id,
+            balance_version=balance_version,
         )
 
 

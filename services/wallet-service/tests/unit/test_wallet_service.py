@@ -7,7 +7,9 @@ from app.services.wallet_service import WalletService
 
 @pytest.fixture
 def mock_repository():
-    return AsyncMock()
+    repo = AsyncMock()
+    repo.next_balance_version.return_value = 1
+    return repo
 
 
 @pytest.fixture
@@ -17,10 +19,11 @@ def service(mock_repository):
 
 @pytest.mark.asyncio
 @patch("app.services.wallet_service.kafka_client")
-async def test_deposit(mock_kafka_client, service):
+async def test_deposit(mock_kafka_client, mock_repository, service):
     mock_kafka_client.send_command = AsyncMock()
+    mock_repository.next_balance_version.return_value = 7
     req = DepositRequest(currency="USD", amount=500.0)
-    await service.process_deposit("user1", req)
+    res = await service.process_deposit("user1", req)
 
     mock_kafka_client.send_command.assert_called_once()
     kwargs = mock_kafka_client.send_command.call_args.kwargs
@@ -31,6 +34,9 @@ async def test_deposit(mock_kafka_client, service):
     assert payload["type"] == "DEPOSIT"
     assert payload["currency"] == "USD"
     assert payload["amount"] == "500.0"
+    # The per-user monotonic version is attached for causal ordering.
+    assert payload["balance_version"] == 7
+    assert res.balance_version == 7
 
     # check key
     assert kwargs["key"] == b"user1"

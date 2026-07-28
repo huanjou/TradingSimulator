@@ -41,6 +41,7 @@ async def test_save_snapshot(snapshot_manager, engine, redis_client):
         "BTC": WalletInfo(available=Decimal("1.0"), locked=Decimal("0.5")),
         "USDT": WalletInfo(available=Decimal("100000.0"), locked=Decimal("0")),
     }
+    engine.user_balance_versions["u1"] = 2
 
     engine.process_order(order)
 
@@ -59,6 +60,7 @@ async def test_save_snapshot(snapshot_manager, engine, redis_client):
     assert data["pending_orders"][0]["id"] == "test1"
     assert data["wallets"]["u1"]["BTC"]["available"] == "1.0"
     assert data["wallets"]["u1"]["BTC"]["locked"] == "0.5"
+    assert data["balance_versions"] == {"u1": 2}
 
 
 @pytest.mark.asyncio
@@ -81,12 +83,18 @@ async def test_load_latest_snapshot(snapshot_manager, engine, redis_client):
         "offsets": offsets,
         "pending_orders": [order_data],
         "wallets": wallet_data,
+        "balance_versions": {"u2": 3},
     }
 
     await redis_client.set(snapshot_manager.snapshot_key, json.dumps(snapshot_data))
 
     # Act
-    orders, loaded_offsets, wallets = await snapshot_manager.load_latest_snapshot()
+    (
+        orders,
+        loaded_offsets,
+        wallets,
+        balance_versions,
+    ) = await snapshot_manager.load_latest_snapshot()
 
     # Assert
     assert loaded_offsets == offsets
@@ -98,6 +106,8 @@ async def test_load_latest_snapshot(snapshot_manager, engine, redis_client):
     assert wallets["u2"]["ETH"]["available"] == "5.0"
     assert wallets["u2"]["ETH"]["locked"] == "10.0"
 
+    assert balance_versions == {"u2": 3}
+
 
 @pytest.mark.asyncio
 async def test_load_empty_snapshot(snapshot_manager, redis_client):
@@ -105,9 +115,15 @@ async def test_load_empty_snapshot(snapshot_manager, redis_client):
     await redis_client.flushall()
 
     # Act
-    orders, loaded_offsets, wallets = await snapshot_manager.load_latest_snapshot()
+    (
+        orders,
+        loaded_offsets,
+        wallets,
+        balance_versions,
+    ) = await snapshot_manager.load_latest_snapshot()
 
     # Assert
     assert len(orders) == 0
     assert loaded_offsets == {}
     assert wallets == {}
+    assert balance_versions == {}

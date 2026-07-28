@@ -37,6 +37,15 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
+    depends_on_balance_version: int | None = Field(
+        None,
+        ge=0,
+        description=(
+            "Balance version this order causally depends on (returned by a prior "
+            "deposit). The engine defers the order until that deposit is applied."
+        ),
+    )
+
     @model_validator(mode="after")
     def validate_limit_order_price(self) -> "OrderCreate":
         if self.order_type == OrderTypeChoice.LIMIT and self.price is None:

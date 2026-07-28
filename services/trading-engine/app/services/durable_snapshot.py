@@ -56,6 +56,11 @@ class DurableSnapshotStore:
             await self._pool.close()
             self._pool = None
 
+    async def ping(self) -> None:
+        """Cheap connectivity check for the /health endpoint."""
+        async with self._pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+
     async def ensure_schema(self) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute(_SCHEMA)
@@ -67,11 +72,16 @@ class DurableSnapshotStore:
 
     async def load(
         self,
-    ) -> Tuple[List[Order], Dict[str, Dict[str, int]], Dict[str, Dict[str, dict]]]:
+    ) -> Tuple[
+        List[Order],
+        Dict[str, Dict[str, int]],
+        Dict[str, Dict[str, dict]],
+        Dict[str, int],
+    ]:
         """Load the durable snapshot.
 
-        Returns ``([], {}, {})`` when no durable snapshot exists yet (e.g. the
-        very first boot after enabling this feature), so callers can fall
+        Returns ``([], {}, {}, {})`` when no durable snapshot exists yet (e.g.
+        the very first boot after enabling this feature), so callers can fall
         through to the next recovery tier.
         """
         async with self._pool.acquire() as conn:
@@ -79,7 +89,7 @@ class DurableSnapshotStore:
 
         if row is None or row["data"] is None:
             logger.info("no_durable_snapshot_in_postgres")
-            return [], {}, {}
+            return [], {}, {}, {}
 
         raw = row["data"]
         # asyncpg returns jsonb as a str by default; be lenient either way.
@@ -87,6 +97,7 @@ class DurableSnapshotStore:
         offsets = snapshot_data.get("offsets", {})
         orders_data = snapshot_data.get("pending_orders", [])
         wallets_data = snapshot_data.get("wallets", {})
+        balance_versions = snapshot_data.get("balance_versions", {})
 
         orders = [Order.model_validate(data) for data in orders_data]
         logger.info(
@@ -94,4 +105,4 @@ class DurableSnapshotStore:
             orders_count=len(orders),
             offsets=offsets,
         )
-        return orders, offsets, wallets_data
+        return orders, offsets, wallets_data, balance_versions

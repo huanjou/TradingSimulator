@@ -47,6 +47,14 @@ class WalletRepository:
         data = {"available": str(available), "locked": str(locked)}
         await self.redis.hset(wallet_key, currency, orjson.dumps(data))
 
+    async def next_balance_version(self, user_id: str) -> int:
+        """Returns a monotonically increasing per-user balance version.
+
+        Used to causally order wallet commands against subsequent order
+        commands (they travel through separate Kafka topics).
+        """
+        return int(await self.redis.incr(f"balance_version:{user_id}"))
+
 
 def get_wallet_repository(redis: Redis = Depends(get_redis)) -> WalletRepository:
     return WalletRepository(redis)

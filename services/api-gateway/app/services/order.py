@@ -45,6 +45,10 @@ class OrderService:
                         else None
                     ),
                     "status": domain_order.status.value,
+                    # Causal ordering hint: the trading-engine defers this
+                    # order until the deposit carrying this balance_version
+                    # has been applied (None -> no dependency, no deferral).
+                    "depends_on_balance_version": order_in.depends_on_balance_version,
                 },
             )
 
