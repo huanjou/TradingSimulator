@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
 
+    # CORS — explicit origins only (wildcard + credentials is unsafe/invalid)
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
     # Otel
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://jaeger:4317"
     OTEL_SERVICE_NAME: str = "notification-ws"

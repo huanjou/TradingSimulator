@@ -19,26 +19,18 @@ def get_user_id_from_token(token: str) -> str | None:
 
 async def get_current_user_id_ws(websocket: WebSocket) -> str:
     """
-    Extracts the user ID from the JWT token present in the HTTP-Only cookie
-    or query parameters for WebSockets.
+    Extracts the user ID from the JWT token present in the HTTP-only cookie.
+
+    The token is read ONLY from the cookie. Passing tokens via query string is
+    rejected because query parameters leak into access logs, proxy logs and
+    browser history.
     """
     token = websocket.cookies.get("access_token")
-
-    logger.info(
-        "ws_connect_attempt",
-        has_cookie_token=bool(token),
-        cookies=list(websocket.cookies.keys()),
-        query_params=dict(websocket.query_params),
-    )
-
-    if not token:
-        # Fallback to query param if needed (e.g. for testing)
-        token = websocket.query_params.get("token")
 
     user_id = get_user_id_from_token(token) if token else None
 
     if not user_id:
-        logger.warning("ws_auth_failed", has_token=bool(token))
+        logger.warning("ws_auth_failed", has_cookie_token=bool(token))
         raise WebSocketException(
             code=status.WS_1008_POLICY_VIOLATION, reason="Authentication failed"
         )

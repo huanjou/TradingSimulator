@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim as base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -32,4 +32,12 @@ COPY . .
 # Install the app
 RUN poetry lock && poetry install --only main
 
+# Development image (runs as root for convenience with bind mounts)
+FROM base as development
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Production image (non-root)
+FROM base as production
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,21 +1,117 @@
+# ==========================================================================
+# PRODUCTION OVERRIDE
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Hardening applied here (do NOT weaken):
+#   * Only nginx is published to the host (80/443). Every other service is
+#     reachable only inside the internal `exchange_net` docker network.
+#   * All secrets are REQUIRED (`${VAR:?message}`) — the stack refuses to
+#     start if they are missing, so no insecure dev defaults can leak to prod.
+#   * ENVIRONMENT/ENV=production so cookies become Secure and secret
+#     validators are enforced.
+#   * Redis requires a password.
+# ==========================================================================
 services:
   # ==========================================
   # ИНФРАСТРУКТУРА
   # ==========================================
-  postgres:
+  postgres-primary:
     restart: always
+    ports: !reset []
+    environment:
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: ${POSTGRES_REPLICA_USER:?POSTGRES_REPLICA_USER is required}
+      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:?POSTGRES_REPLICA_PASSWORD is required}
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:?POSTGRES_DB is required}
+
+  postgres-replica:
+    restart: always
+    ports: !reset []
+    environment:
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: ${POSTGRES_REPLICA_USER:?POSTGRES_REPLICA_USER is required}
+      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:?POSTGRES_REPLICA_PASSWORD is required}
+      POSTGRESQL_MASTER_HOST: postgres-primary
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
 
   kafka:
     restart: always
+    ports: !reset []
 
   redis:
     restart: always
+    ports: !reset []
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --save 60 1 --loglevel warning
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # НАБЛЮДАЕМОСТЬ (не публикуем наружу; доступ через SSH-туннель/VPN)
+  # ==========================================
+  jaeger:
+    restart: always
+    ports: !reset []
+
+  otel-collector:
+    restart: always
+    ports: !reset []
+
+  prometheus:
+    restart: always
+    ports: !reset []
+
+  loki:
+    restart: always
+    ports: !reset []
+
+  cadvisor:
+    restart: always
+    ports: !reset []
+
+  node-exporter:
+    restart: always
+    ports: !reset []
+
+  promtail:
+    restart: always
+
+  grafana:
+    restart: always
+    ports: !reset []
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
 
   nginx:
     restart: always
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: exchange_certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # Renew certificates twice a day; nginx picks up new certs on reload.
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+    networks:
+      - exchange_net
 
   # ==========================================
   # МИКРОСЕРВИСЫ (Переопределение для Production)
@@ -24,29 +120,121 @@ services:
     build:
       target: production
     restart: always
-    # Очищаем проброс кода
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      - ENV=production
+      - LOG_LEVEL=INFO
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+
+  ledger-writer:
+    build:
+      target: production
+    restart: always
     volumes: !reset []
     environment:
       - ENV=production
       - LOG_LEVEL=INFO
 
+  cache-writer:
+    build:
+      target: production
+    restart: always
+    volumes: !reset []
+    environment:
+      - ENV=production
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+
+  query-service:
+    build:
+      target: production
+    restart: always
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      - ENV=production
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
+
+  trading-engine:
+    build:
+      target: production
+    restart: always
+    volumes: !reset []
+    environment:
+      - ENV=production
+      - LOG_LEVEL=INFO
+      # Prod Redis requires auth; without this the engine can't read/write its
+      # recovery snapshot and every restart would cold-start (money-loss risk).
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+
+  market-data:
+    build:
+      target: production
+    restart: always
+    volumes: !reset []
+    environment:
+      - ENV=production
+      - LOG_LEVEL=INFO
+
+  stream-service:
+    build:
+      target: production
+    restart: always
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      - LOG_LEVEL=INFO
+      - BACKEND_CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
+
+  notification-ws:
+    build:
+      target: production
+    restart: always
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      - LOG_LEVEL=INFO
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
+
+  user-service:
+    build:
+      target: production
+    restart: always
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
+    # Skip create-superuser in prod; rely on migrations and manual setup
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"
+
+  wallet-service:
+    build:
+      target: production
+    restart: always
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
+
   frontend:
     build:
       target: production
     restart: always
-    # Очищаем проброс кода
+    ports: !reset []
     volumes: !reset []
     environment:
       - NODE_ENV=production
-
-  matching-engine:
-    restart: always
-
-  ledger:
-    restart: always
-
-  user-service:
-    restart: always
-    # Skip create-superuser in prod; rely on migrations and manual setup
-    command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"

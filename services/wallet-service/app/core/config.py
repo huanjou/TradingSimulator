@@ -1,6 +1,9 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Known insecure default that must never be used outside local development.
+INSECURE_JWT_SECRET = "supersecretjwtkey123"  # noqa: S105
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "wallet-service"
@@ -14,8 +17,8 @@ class Settings(BaseSettings):
     KAFKA_BROKER: str = "kafka:9092"
     KAFKA_WALLET_COMMANDS_TOPIC: str = "wallet_commands"
 
-    # Auth
-    JWT_SECRET: str = "supersecretjwtkey123"
+    # Auth (JWT_SECRET is required, no insecure default baked into the image)
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
 
     # Telemetry
@@ -30,10 +33,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def check_secrets(self) -> "Settings":
-        if (
-            self.ENVIRONMENT == "production"
-            and self.JWT_SECRET == "supersecretjwtkey123"
-        ):
+        if self.ENVIRONMENT == "production" and self.JWT_SECRET == INSECURE_JWT_SECRET:
             raise ValueError("Cannot use default JWT_SECRET in production!")
         return self
 

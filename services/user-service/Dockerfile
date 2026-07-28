@@ -4,7 +4,8 @@ RUN pip install poetry poetry-plugin-export
 COPY ./pyproject.toml ./poetry.lock* /tmp/
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 
-FROM python:3.11-slim
+# Common base with dependencies and application code
+FROM python:3.11-slim as base
 WORKDIR /app
 COPY --from=requirements-stage /tmp/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
@@ -12,5 +13,12 @@ COPY ./app /app/app
 COPY ./alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
 
-# Run database migrations and start the application
+# Development image (runs as root for convenience with bind mounts)
+FROM base as development
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+
+# Production image (non-root, multiple workers)
+FROM base as production
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"]

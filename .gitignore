@@ -52,3 +52,7 @@ logs/
 pg_data/
 kafka_data/
 redis_data/
+
+# TLS certificates (Let's Encrypt / certbot) — never commit private keys
+infra/certbot/conf/
+infra/certbot/www/

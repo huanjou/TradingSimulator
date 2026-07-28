@@ -337,10 +337,16 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
       - KAFKA_MARKET_DATA_TOPIC=market_data
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres-primary:5432/${POSTGRES_DB:-ledger_db}
       - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres-primary:
         condition: service_healthy
     volumes:
       - ../services/trading-engine:/app
@@ -372,6 +378,7 @@ services:
     build:
       context: ../services/stream-service
       dockerfile: Dockerfile
+      target: development
     container_name: exchange_stream_service
     ports:
       - "8002:8000"
@@ -390,6 +397,7 @@ services:
     build:
       context: ../services/notification-ws
       dockerfile: Dockerfile
+      target: development
     container_name: exchange_notification_ws
     ports:
       - "8004:8000"
@@ -411,6 +419,7 @@ services:
     build:
       context: ../services/user-service
       dockerfile: Dockerfile
+      target: development
     container_name: exchange_user_service
     ports:
       - "8003:8000"
@@ -442,6 +451,7 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_WALLET_COMMANDS_TOPIC=wallet_commands
       - ENVIRONMENT=${APP_ENV:-development}
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey123}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       kafka:

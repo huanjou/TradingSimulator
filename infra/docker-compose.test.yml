@@ -278,6 +278,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - TESTING=1
       - ENV=test
+      - JWT_SECRET=test_secret_for_tests
     depends_on:
       test-kafka:
         condition: service_healthy

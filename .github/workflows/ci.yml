@@ -22,3 +22,23 @@ jobs:
 
       - name: Run Integration Tests
         run: make test
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Dependency vulnerabilities (poetry.lock / package-lock.json),
+      # leaked secrets, and Dockerfile/compose misconfigurations.
+      - name: Trivy scan (deps, secrets, misconfig)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
