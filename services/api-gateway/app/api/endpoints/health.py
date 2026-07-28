@@ -1,20 +1,54 @@
+import grpc
 from app.core.kafka import kafka_client
-from fastapi import APIRouter
+from app.core.redis import redis_client
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
 
 @router.get("/")
-async def health_check():
+async def health_check(request: Request):
     """
-    Check system health, including Kafka connection.
+    Liveness + readiness check: verifies Kafka, Redis (if initialized)
+    and the gRPC channel to query-service.
     """
-    health_status = {"status": "ok", "kafka": "unknown"}
+    checks = {}
 
-    # Check Kafka
-    if kafka_client.producer:
-        health_status["kafka"] = "connected"
-    else:
-        health_status["kafka"] = "not_initialized"
+    # Check Kafka: cheap metadata fetch through the producer client
+    try:
+        if kafka_client.producer is None:
+            raise RuntimeError("Kafka producer not initialized")
+        await kafka_client.producer.client.fetch_all_metadata()
+        checks["kafka"] = "ok"
+    except Exception:
+        checks["kafka"] = "error"
 
-    return health_status
+    # Check Redis (optional: only when the rate-limiter client is initialized)
+    if redis_client.client is not None:
+        try:
+            await redis_client.client.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "error"
+
+    # Check upstream query-service gRPC channel
+    try:
+        state = request.app.state.grpc_channel.get_state()
+        checks["query_service_grpc"] = (
+            "error"
+            if state
+            in (
+                grpc.ChannelConnectivity.TRANSIENT_FAILURE,
+                grpc.ChannelConnectivity.SHUTDOWN,
+            )
+            else "ok"
+        )
+    except Exception:
+        checks["query_service_grpc"] = "error"
+
+    all_ok = all(v == "ok" for v in checks.values())
+    return JSONResponse(
+        {"status": "healthy" if all_ok else "degraded", "checks": checks},
+        status_code=200 if all_ok else 503,
+    )

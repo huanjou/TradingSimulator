@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Dependencies
     QUERY_SERVICE_URL: str = "http://query-service:8000"
 
+    # Port for the minimal HTTP /health endpoint (Docker healthcheck)
+    HEALTH_PORT: int = 8000
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

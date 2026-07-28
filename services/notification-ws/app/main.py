@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 import structlog
-from app.api import ws
+from app.api import health, ws
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.core.middleware import setup_middlewares
@@ -41,3 +41,4 @@ setup_opentelemetry(app)
 setup_middlewares(app)
 
 app.include_router(ws.router, tags=["websocket"])
+app.include_router(health.router, tags=["health"])

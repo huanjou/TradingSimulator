@@ -1,18 +1,17 @@
-from app.core.config import settings
 from app.db.session import engine
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 router = APIRouter()
 
 
-@router.get("", tags=["Health"])
-async def health_check():
-    """Liveness + readiness check: verifies Postgres connectivity."""
+@router.get("")
+async def health_check(request: Request):
+    """Liveness + readiness check: verifies Postgres and the gRPC server."""
     checks = {}
 
-    # Check Postgres
+    # Check Postgres (replica)
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
@@ -20,12 +19,12 @@ async def health_check():
     except Exception:
         checks["postgres"] = "error"
 
+    # Check gRPC server (started in lifespan)
+    grpc_server = getattr(request.app.state, "grpc_server", None)
+    checks["grpc"] = "ok" if grpc_server is not None else "error"
+
     all_ok = all(v == "ok" for v in checks.values())
     return JSONResponse(
-        {
-            "status": "healthy" if all_ok else "degraded",
-            "service": settings.PROJECT_NAME,
-            "checks": checks,
-        },
+        {"status": "healthy" if all_ok else "degraded", "checks": checks},
         status_code=200 if all_ok else 503,
     )

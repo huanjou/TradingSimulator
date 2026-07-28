@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ENV: str = "development"
     LOG_LEVEL: str = "INFO"
+    HEALTH_PORT: int = 8000
 
     # Database
     POSTGRES_URL: PostgresDsn

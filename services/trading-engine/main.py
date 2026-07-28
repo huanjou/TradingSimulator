@@ -1,7 +1,9 @@
 import asyncio
+import signal
 
 import structlog
 from app.core.config import settings
+from app.core.health import HealthServer
 from app.core.kafka import KafkaConsumerRunner, KafkaPublisher
 from app.core.logging import setup_logging
 from app.core.telemetry import setup_opentelemetry
@@ -16,9 +18,29 @@ setup_opentelemetry()
 logger = structlog.get_logger(__name__)
 
 
+def install_signal_handlers(shutdown_event: asyncio.Event) -> None:
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, shutdown_event.set)
+        except NotImplementedError:
+            # Windows: fall back to sync signal handlers
+            signal.signal(sig, lambda *_: shutdown_event.set())
+
+
 async def main():
+    shutdown_event = asyncio.Event()
+    install_signal_handlers(shutdown_event)
+
     engine = MatchingEngine()
-    redis_client = Redis.from_url(settings.REDIS_URL, decode_responses=False)
+    redis_client = Redis.from_url(
+        settings.REDIS_URL,
+        decode_responses=False,
+        socket_connect_timeout=5,
+        socket_timeout=5,
+        retry_on_timeout=True,
+        health_check_interval=10,
+    )
 
     # Durable snapshot mirror (Postgres). Optional: only when POSTGRES_URL is set.
     durable_store = None
@@ -35,6 +57,7 @@ async def main():
         pending_orders,
         initial_offsets,
         wallets_data,
+        balance_versions,
     ) = await snapshot_manager.load_latest_snapshot()
 
     # Layered cold-start recovery (Redis snapshot was absent):
@@ -48,13 +71,14 @@ async def main():
     cold_start = not initial_offsets and not pending_orders and not wallets_data
 
     if cold_start and durable_store is not None:
-        d_orders, d_offsets, d_wallets = await durable_store.load()
+        d_orders, d_offsets, d_wallets, d_versions = await durable_store.load()
         if d_offsets or d_orders or d_wallets:
             logger.warning("recovered_from_durable_postgres_snapshot")
-            pending_orders, initial_offsets, wallets_data = (
+            pending_orders, initial_offsets, wallets_data, balance_versions = (
                 d_orders,
                 d_offsets,
                 d_wallets,
+                d_versions,
             )
             cold_start = False
 
@@ -71,6 +95,7 @@ async def main():
 
     engine.restore_orders(pending_orders)
     engine.restore_wallets(wallets_data)
+    engine.restore_balance_versions(balance_versions)
 
     publisher = KafkaPublisher()
 
@@ -96,21 +121,55 @@ async def main():
     )
 
     logger.info("Starting Trading Engine...")
-    try:
-        await publisher.start()
-        await consumer.start()
-    except asyncio.CancelledError:
-        logger.info("Trading Engine cancelled")
-    except KeyboardInterrupt:
-        logger.info("Trading Engine interrupted by user")
-    finally:
-        snapshot_task.cancel()
-        await consumer.stop()
-        await publisher.stop()
-        await redis_client.close()
+    await publisher.start()
+    consumer_task = asyncio.create_task(consumer.start())
+
+    async def health_checks() -> dict[str, str]:
+        checks = {}
+        # Kafka: the consume loop must still be alive
+        checks["kafka"] = "ok" if not consumer_task.done() else "error"
+        try:
+            await redis_client.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "error"
         if durable_store is not None:
-            await durable_store.close()
-        logger.info("Trading Engine stopped")
+            try:
+                await durable_store.ping()
+                checks["postgres"] = "ok"
+            except Exception:
+                checks["postgres"] = "error"
+        return checks
+
+    health_server = HealthServer(health_checks, port=settings.HEALTH_PORT)
+    await health_server.start()
+
+    # Run until SIGTERM/SIGINT or until the consumer dies on its own
+    shutdown_wait = asyncio.create_task(shutdown_event.wait())
+    await asyncio.wait(
+        [consumer_task, shutdown_wait], return_when=asyncio.FIRST_COMPLETED
+    )
+    shutdown_wait.cancel()
+
+    logger.info("Shutting down gracefully...")
+    try:
+        async with asyncio.timeout(10):
+            # 1. Stop consuming new messages (offsets are committed per batch,
+            #    consumer.stop() runs in the task's finally block)
+            consumer_task.cancel()
+            await asyncio.gather(consumer_task, return_exceptions=True)
+            # 2. Stop periodic snapshotting
+            snapshot_task.cancel()
+            await asyncio.gather(snapshot_task, return_exceptions=True)
+            # 3. Flush pending events and close connections
+            await publisher.stop()
+            await health_server.stop()
+            await redis_client.close()
+            if durable_store is not None:
+                await durable_store.close()
+    except TimeoutError:
+        logger.warning("graceful_shutdown_timed_out")
+    logger.info("Trading Engine stopped")
 
 
 if __name__ == "__main__":

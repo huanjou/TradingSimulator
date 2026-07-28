@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # Durable ledger used for cold-start recovery when no Redis snapshot exists.
     # Optional: if unset, the engine falls back to legacy empty-state startup.
     POSTGRES_URL: str | None = None
+    # Port for the minimal HTTP /health endpoint (Docker healthcheck)
+    HEALTH_PORT: int = 8000
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

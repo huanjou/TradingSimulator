@@ -254,9 +254,15 @@ services:
       kafka:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   ledger-writer:
     build:
@@ -280,6 +286,12 @@ services:
       - ../services/ledger-writer:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   cache-writer:
     build:
@@ -302,6 +314,12 @@ services:
       - ../services/cache-writer:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   query-service:
     build:
@@ -327,6 +345,12 @@ services:
       - ../services/query-service:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   trading-engine:
     build:
@@ -353,6 +377,12 @@ services:
       - ../services/trading-engine:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   market-data:
     build:
@@ -374,6 +404,12 @@ services:
       - ../services/market-data:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   stream-service:
     build:
@@ -393,6 +429,12 @@ services:
       - ../services/stream-service:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   notification-ws:
     build:
@@ -415,6 +457,12 @@ services:
       - ../services/notification-ws:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   user-service:
     build:
@@ -440,6 +488,12 @@ services:
       - ../services/user-service:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   wallet-service:
     build:
@@ -461,6 +515,12 @@ services:
       - ../services/wallet-service:/app
     networks:
       - exchange_net
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=4)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   frontend:
     build:

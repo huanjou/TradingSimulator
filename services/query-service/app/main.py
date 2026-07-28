@@ -16,8 +16,10 @@ logger = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI):
     # Start gRPC server in the background
     grpc_server = await serve_grpc()
+    app.state.grpc_server = grpc_server
     yield
     # Stop gRPC server gracefully
+    app.state.grpc_server = None
     await grpc_server.stop(grace=5)
 
 
