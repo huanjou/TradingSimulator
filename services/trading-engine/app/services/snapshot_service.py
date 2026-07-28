@@ -73,8 +73,9 @@ class SnapshotManager:
             logger.error("failed_to_save_snapshot", error=str(e), exc_info=True)
             return
 
-        # Mirror to durable Postgres storage as a separate, best-effort step:
-        # a Postgres hiccup must never take down the primary Redis snapshot path.
+        # Mirror to durable Postgres storage as a mandatory step: if the
+        # durable snapshot cannot be written, the snapshot operation fails so
+        # cold-start recovery guarantees are never silently degraded.
         if self.durable_store is not None:
             try:
                 await self.durable_store.save(snapshot_data)
@@ -82,6 +83,7 @@ class SnapshotManager:
                 logger.error(
                     "failed_to_save_durable_snapshot", error=str(e), exc_info=True
                 )
+                raise
 
     async def load_latest_snapshot(
         self,
