@@ -9,10 +9,11 @@ settings = get_settings()
 logger = structlog.get_logger(__name__)
 
 
-async def consume():
+async def consume(shutdown_event=None):
     """
     Kafka consumer loop for the ledger-writer service.
     Pulls batches of orders and hands them off to the processor.
+    Exits after the in-flight batch once ``shutdown_event`` is set.
     """
     consumer = AIOKafkaConsumer(
         "orders",
@@ -22,6 +23,9 @@ async def consume():
         group_id=settings.KAFKA_CONSUMER_GROUP,
         auto_offset_reset="earliest",
         enable_auto_commit=False,
+        isolation_level="read_committed",
+        session_timeout_ms=10000,
+        heartbeat_interval_ms=3000,
     )
     await consumer.start()
     logger.info(
@@ -33,7 +37,7 @@ async def consume():
         ],
     )
     try:
-        while True:
+        while shutdown_event is None or not shutdown_event.is_set():
             # Fetch in batches for efficiency
             result = await consumer.getmany(timeout_ms=1000, max_records=100)
             for tp, messages in result.items():

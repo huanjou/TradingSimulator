@@ -22,6 +22,9 @@ class NotificationKafkaConsumer:
             group_id="notification-ws-group",
             auto_offset_reset="latest",
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+            isolation_level="read_committed",
+            session_timeout_ms=10000,
+            heartbeat_interval_ms=3000,
         )
         self.task = None
 

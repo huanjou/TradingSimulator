@@ -95,6 +95,9 @@ class KafkaConsumerRunner:
             group_id="trading-engine-group",
             auto_offset_reset="earliest",
             enable_auto_commit=False,  # Explicitly disable to avoid data loss
+            isolation_level="read_committed",
+            session_timeout_ms=10000,
+            heartbeat_interval_ms=3000,
         )
         self.consumer.subscribe(
             [

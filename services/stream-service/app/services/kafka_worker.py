@@ -29,6 +29,9 @@ class KafkaWorker:
                 group_id="stream-service-group",
                 auto_offset_reset="latest",
                 # Do not deserialize here, we need raw bytes for Redis
+                isolation_level="read_committed",
+                session_timeout_ms=10000,
+                heartbeat_interval_ms=3000,
             )
             await self.consumer.start()
             self._running = True
@@ -55,6 +58,14 @@ class KafkaWorker:
         if self.redis_client:
             await self.redis_client.aclose()
         logger.info("KafkaWorker stopped")
+
+    def is_healthy(self) -> bool:
+        """True while the consume loop is running (used by /health)."""
+        return (
+            self._running
+            and self._consume_task is not None
+            and not self._consume_task.done()
+        )
 
     async def _consume(self):
         try:

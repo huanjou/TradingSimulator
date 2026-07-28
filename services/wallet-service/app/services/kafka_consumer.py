@@ -24,6 +24,9 @@ class BalanceUpdateConsumer:
             group_id="wallet-service-group",
             auto_offset_reset="earliest",
             enable_auto_commit=False,
+            isolation_level="read_committed",
+            session_timeout_ms=10000,
+            heartbeat_interval_ms=3000,
         )
         await self.consumer.start()
         logger.info("Kafka Consumer for balance_updates started.")
