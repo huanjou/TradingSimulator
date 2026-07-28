@@ -22,6 +22,7 @@ os.environ["POSTGRES_URL"] = test_db_url
 # 2. Use a separate Redis database (e.g. 1) for tests so we don't wipe dev cache!
 os.environ.setdefault("REDIS_URL", "redis://127.0.0.1:6379/1")
 os.environ.setdefault("ENV", "test")
+os.environ.setdefault("JWT_SECRET", "test_secret_for_tests")
 
 
 @pytest.fixture(scope="session")

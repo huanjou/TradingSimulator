@@ -60,12 +60,38 @@ def get_current_user_id(request: Request) -> str:
         ) from e
 
 
+def get_request_token(request: Request) -> str:
+    """
+    Extracts the raw JWT from the Authorization header or HTTP-Only cookie so
+    it can be forwarded to internal services (e.g. query-service via gRPC
+    metadata). Validation is performed by get_current_user_id and again by the
+    downstream service.
+    """
+    token: str | None = None
+
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+
+    if not token:
+        token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    return token
+
+
 def get_current_admin_user(request: Request) -> str:
     """
     Extracts the user ID and verifies that the user has an ADMIN role.
     """
-    # Reuse extraction logic (this requires token to be available, but we can just duplicate or refactor later)
-    # Actually, simpler to just get token directly here since the logic is small, or just call get_current_user_id to validate CSRF first.
+    # Reuse extraction logic (this requires token to be available, but we can
+    # just duplicate or refactor later). Actually, simpler to just get token
+    # directly here since the logic is small, or just call get_current_user_id
+    # to validate CSRF first.
     user_id = get_current_user_id(request)
 
     # We need the token again to check role

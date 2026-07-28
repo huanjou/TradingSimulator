@@ -125,6 +125,7 @@ services:
     environment:
       - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@postgres-replica:5432/test_db
       - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=test_secret_for_tests
     depends_on:
       postgres-replica:
         condition: service_healthy
@@ -185,6 +186,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - TESTING=1
       - ENV=test
+      - JWT_SECRET=test_secret_for_tests
     depends_on:
       postgres-replica:
         condition: service_healthy

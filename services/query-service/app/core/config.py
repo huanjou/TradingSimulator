@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # Cache
     REDIS_URL: AnyUrl = "redis://redis:6379"
 
+    # Auth — must match the secret/algorithm used by user-service to sign tokens
+    JWT_SECRET: str
+    JWT_ALGORITHM: str = "HS256"
+
     # CORS — explicit origins only (wildcard + credentials is unsafe/invalid)
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 

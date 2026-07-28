@@ -1,14 +1,98 @@
+import contextvars
 import uuid
+from collections.abc import Awaitable, Callable
 
 import grpc
 import structlog
+from app.core.auth import decode_token
 from app.db.session import AsyncSessionLocal
 from app.grpc_stubs import orders_pb2, orders_pb2_grpc
 from app.repositories.order import OrderRepository
 from app.repositories.trade import trade_repo
 from app.services.order_service import get_order_by_id
+from jose import JWTError
 
 logger = structlog.get_logger(__name__)
+
+# Payload of the authenticated JWT, bound per-RPC by JwtAuthInterceptor.
+_auth_payload_ctx: contextvars.ContextVar[dict] = contextvars.ContextVar(
+    "grpc_auth_payload"
+)
+
+
+def get_authenticated_user() -> tuple[str, bool]:
+    """Returns (user_id, is_admin) for the current RPC."""
+    payload = _auth_payload_ctx.get({})
+    return payload.get("sub", ""), payload.get("role") == "admin"
+
+
+class JwtAuthInterceptor(grpc.aio.ServerInterceptor):
+    """
+    Validates the JWT passed in the 'authorization' metadata key
+    ("Bearer <token>") and binds its payload to the RPC context.
+    Rejects the call with UNAUTHENTICATED when the token is missing/invalid.
+    """
+
+    async def intercept_service(
+        self,
+        continuation: Callable[
+            [grpc.HandlerCallDetails], Awaitable[grpc.RpcMethodHandler]
+        ],
+        handler_call_details: grpc.HandlerCallDetails,
+    ) -> grpc.RpcMethodHandler:
+        metadata = dict(handler_call_details.invocation_metadata or ())
+        token = metadata.get("authorization", "")
+        if token.startswith("Bearer "):
+            token = token[len("Bearer ") :]
+
+        try:
+            if not token:
+                raise JWTError("Missing token")
+            payload = decode_token(token)
+            if not payload.get("sub"):
+                raise JWTError("Missing subject claim")
+        except JWTError as e:
+            logger.warning(
+                "grpc_auth_failed",
+                grpc_method=handler_call_details.method,
+                error=str(e),
+            )
+            return self._unauthenticated_handler()
+
+        handler = await continuation(handler_call_details)
+        return self._with_auth_payload(handler, payload)
+
+    @staticmethod
+    def _unauthenticated_handler() -> grpc.RpcMethodHandler:
+        async def abort(request, context):
+            await context.abort(
+                grpc.StatusCode.UNAUTHENTICATED, "Invalid or missing token"
+            )
+
+        return grpc.unary_unary_rpc_method_handler(abort)
+
+    @staticmethod
+    def _with_auth_payload(
+        handler: grpc.RpcMethodHandler | None, payload: dict
+    ) -> grpc.RpcMethodHandler | None:
+        # All OrderQueryService RPCs are unary-unary.
+        if handler is None or handler.unary_unary is None:
+            return handler
+
+        inner = handler.unary_unary
+
+        async def behavior(request, context):
+            ctx_token = _auth_payload_ctx.set(payload)
+            try:
+                return await inner(request, context)
+            finally:
+                _auth_payload_ctx.reset(ctx_token)
+
+        return grpc.unary_unary_rpc_method_handler(
+            behavior,
+            request_deserializer=handler.request_deserializer,
+            response_serializer=handler.response_serializer,
+        )
 
 
 class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
@@ -31,6 +115,13 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
                     logger.warning("order_not_found")
                     context.set_code(grpc.StatusCode.NOT_FOUND)
                     context.set_details(f"Order {order_id} not found")
+                    return orders_pb2.OrderResponse()
+
+                auth_user_id, is_admin = get_authenticated_user()
+                if not is_admin and order.user_id != auth_user_id:
+                    logger.warning("order_access_denied", owner_id=order.user_id)
+                    context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+                    context.set_details("Not authorized to access this order")
                     return orders_pb2.OrderResponse()
 
                 logger.info("order_fetched")
@@ -70,6 +161,20 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
 
         try:
             async with AsyncSessionLocal() as db_session:
+                order = await get_order_by_id(OrderRepository(db_session), order_id)
+                if not order:
+                    logger.warning("order_not_found")
+                    context.set_code(grpc.StatusCode.NOT_FOUND)
+                    context.set_details(f"Order {order_id} not found")
+                    return orders_pb2.GetTradesResponse()
+
+                auth_user_id, is_admin = get_authenticated_user()
+                if not is_admin and order.user_id != auth_user_id:
+                    logger.warning("trades_access_denied", owner_id=order.user_id)
+                    context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+                    context.set_details("Not authorized to access these trades")
+                    return orders_pb2.GetTradesResponse()
+
                 trades = await trade_repo.get_by_order_id(
                     db_session,
                     order_id,
@@ -112,6 +217,13 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
             request_id=str(uuid.uuid4()), user_id=user_id, grpc_method="GetOrdersByUser"
         )
         logger.info("grpc_get_orders_by_user_request_received")
+
+        auth_user_id, is_admin = get_authenticated_user()
+        if not is_admin and user_id != auth_user_id:
+            logger.warning("orders_by_user_access_denied", auth_user_id=auth_user_id)
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            context.set_details("Not authorized to access these orders")
+            return orders_pb2.GetOrdersByUserResponse()
 
         try:
             async with AsyncSessionLocal() as db_session:
@@ -160,6 +272,13 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
         )
         logger.info("grpc_get_trades_by_user_request_received")
 
+        auth_user_id, is_admin = get_authenticated_user()
+        if not is_admin and user_id != auth_user_id:
+            logger.warning("trades_by_user_access_denied", auth_user_id=auth_user_id)
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            context.set_details("Not authorized to access these trades")
+            return orders_pb2.GetTradesResponse()
+
         try:
             async with AsyncSessionLocal() as db_session:
                 trades = await trade_repo.get_by_user_id(
@@ -192,7 +311,7 @@ class OrderQueryServiceServicer(orders_pb2_grpc.OrderQueryServiceServicer):
 
 
 async def serve_grpc():
-    server = grpc.aio.server()
+    server = grpc.aio.server(interceptors=[JwtAuthInterceptor()])
     orders_pb2_grpc.add_OrderQueryServiceServicer_to_server(
         OrderQueryServiceServicer(), server
     )

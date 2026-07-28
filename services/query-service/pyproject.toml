@@ -26,6 +26,7 @@ grpcio = "^1.82.0"
 grpcio-tools = "^1.82.0"
 protobuf = "^7.35.1"
 opentelemetry-instrumentation-grpc = "0.64b0"
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.2"

@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_request_token
 from app.schemas.order import OrderCreate, OrderResponse
 from app.services.order import order_service
 from app.services.order_query import order_query_service
@@ -40,7 +40,10 @@ async def create_order(
     "/{order_id}",
 )
 async def get_order(
-    order_id: str, request: Request, current_user_id: str = Depends(get_current_user_id)
+    order_id: str,
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+    token: str = Depends(get_request_token),
 ) -> Any:
     """
     Get order by ID by calling the internal query-service via gRPC.
@@ -49,6 +52,7 @@ async def get_order(
         channel=request.app.state.grpc_channel,
         order_id=order_id,
         current_user_id=current_user_id,
+        token=token,
     )
 
 
@@ -56,7 +60,10 @@ async def get_order(
     "/{order_id}/trades",
 )
 async def get_order_trades(
-    order_id: str, request: Request, current_user_id: str = Depends(get_current_user_id)
+    order_id: str,
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+    token: str = Depends(get_request_token),
 ) -> Any:
     """
     Get trades for an order by calling the internal query-service via gRPC.
@@ -65,6 +72,7 @@ async def get_order_trades(
         channel=request.app.state.grpc_channel,
         order_id=order_id,
         current_user_id=current_user_id,
+        token=token,
     )
 
 
@@ -77,6 +85,7 @@ async def get_orders_by_user(
     limit: int = 50,
     offset: int = 0,
     current_user_id: str = Depends(get_current_user_id),
+    token: str = Depends(get_request_token),
 ) -> Any:
     """
     Get orders for a specific user by calling the internal query-service via gRPC.
@@ -85,6 +94,7 @@ async def get_orders_by_user(
         channel=request.app.state.grpc_channel,
         user_id=user_id,
         current_user_id=current_user_id,
+        token=token,
         limit=limit,
         offset=offset,
     )
@@ -99,6 +109,7 @@ async def get_trades_by_user(
     limit: int = 50,
     offset: int = 0,
     current_user_id: str = Depends(get_current_user_id),
+    token: str = Depends(get_request_token),
 ) -> Any:
     """
     Get all trades for a specific user.
@@ -107,6 +118,7 @@ async def get_trades_by_user(
         channel=request.app.state.grpc_channel,
         user_id=user_id,
         current_user_id=current_user_id,
+        token=token,
         limit=limit,
         offset=offset,
     )

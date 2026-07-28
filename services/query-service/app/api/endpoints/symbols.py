@@ -15,6 +15,8 @@ class SymbolResponse(BaseModel):
 
 @router.get("", response_model=list[SymbolResponse])
 async def get_symbols(
+    # NOTE: intentionally unauthenticated — symbols are public market reference
+    # data and are fetched by the market-data service without a user JWT.
     q: str | None = None,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
