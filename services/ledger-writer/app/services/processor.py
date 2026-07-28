@@ -158,10 +158,13 @@ async def process_orders(
 
         order_inserts_list = list(order_inserts.values())
         order_updates_list = list(order_updates.values())
+        trade_inserts_list = list(trade_inserts.values())
+        balance_upserts_list = list(balance_upserts.values())
 
-        if order_inserts_list:
-            await order_repo.upsert_bulk(session, order_inserts_list)
-            ledger_writes_counter.add(len(order_inserts), {"type": "order_insert"})
+        # Order status updates run first, in their own commit scope: the bulk
+        # path can fail due to eventual consistency (Kafka delivers the update
+        # before the insert) and its per-row fallback commits/rollbacks must
+        # not interfere with the atomic write transaction below.
         if order_updates_list:
             try:
                 await order_repo.update_status_bulk(session, order_updates_list)
@@ -193,37 +196,22 @@ async def process_orders(
                         )
                         await session.rollback()
 
-        trade_inserts_list = list(trade_inserts.values())
-        if trade_inserts_list:
-            try:
-                await trade_repo.upsert_bulk(session, trade_inserts_list)
-                ledger_writes_counter.add(len(trade_inserts), {"type": "trade_insert"})
-            except Exception as e:
-                logger.warning(
-                    "bulk_trade_insert_failed_fallback_to_individual", error=str(e)
-                )
-                await session.rollback()
-                for trade_data in trade_inserts_list:
-                    try:
-                        await trade_repo.upsert_bulk(session, [trade_data])
-                    except Exception as inner_e:
-                        logger.error(
-                            "individual_trade_insert_failed",
-                            trade_id=trade_data["id"],
-                            error=str(inner_e),
-                        )
-                        await session.rollback()
+        # Order inserts, trade inserts, balance upserts and symbol events all
+        # share a single transaction with a single commit below, so a crash
+        # can never persist a trade without its matching balance update.
+        if order_inserts_list:
+            await order_repo.upsert_bulk(session, order_inserts_list)
+            ledger_writes_counter.add(len(order_inserts), {"type": "order_insert"})
 
-        balance_upserts_list = list(balance_upserts.values())
+        if trade_inserts_list:
+            await trade_repo.upsert_bulk(session, trade_inserts_list)
+            ledger_writes_counter.add(len(trade_inserts), {"type": "trade_insert"})
+
         if balance_upserts_list and balance_repo:
-            try:
-                await balance_repo.upsert_bulk(session, balance_upserts_list)
-                ledger_writes_counter.add(
-                    len(balance_upserts_list), {"type": "balance_upsert"}
-                )
-            except Exception as e:
-                logger.warning("bulk_balance_upsert_failed", error=str(e))
-                await session.rollback()
+            await balance_repo.upsert_bulk(session, balance_upserts_list)
+            ledger_writes_counter.add(
+                len(balance_upserts_list), {"type": "balance_upsert"}
+            )
 
         for event in system_events:
             if event.get("type") == "SYMBOL_CREATED":
@@ -232,9 +220,11 @@ async def process_orders(
                     await symbol_repo.upsert(session, symbol_name)
                     logger.info("symbol_created_in_db", symbol=symbol_name)
 
+        # Single commit for the whole batch: trades and balances land
+        # atomically or not at all.
         await session.commit()
     except Exception as e:
-        ledger_write_errors_counter.add(1, {"reason": "commit_failed"})
-        logger.error("batch_processing_failed", error=str(e), exc_info=True)
+        ledger_write_errors_counter.add(1, {"reason": "ledger_write_failed"})
+        logger.error("ledger_write_failed", error=str(e), exc_info=True)
         await session.rollback()
-        raise
+        raise  # Let the caller handle retry/offset management
