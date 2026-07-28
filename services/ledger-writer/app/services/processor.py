@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 import orjson
 import structlog
 from app.core.utils import is_valid_uuid
@@ -9,6 +11,21 @@ from opentelemetry import metrics
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
+
+
+def _to_decimal(value, default: str = "0") -> Decimal:
+    """Parse a monetary value into an exact Decimal.
+
+    Values arrive as JSON strings (engine events) or numbers. Converting via
+    ``str`` avoids binary float rounding errors when the source is a float.
+    """
+    if value is None:
+        return Decimal(default)
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal(default)
+
 
 meter = metrics.get_meter(__name__)
 ledger_writes_counter = meter.create_counter(
@@ -72,9 +89,9 @@ async def process_orders(
                         "symbol": data.get("symbol"),
                         "side": data.get("side"),
                         "order_type": data.get("order_type", data.get("type")),
-                        "quantity": float(data.get("quantity") or 0.0),
-                        "filled_quantity": 0.0,
-                        "price": float(data.get("price") or 0.0),
+                        "quantity": _to_decimal(data.get("quantity")),
+                        "filled_quantity": Decimal("0"),
+                        "price": _to_decimal(data.get("price")),
                         "status": data.get("status", "PENDING"),
                     }
                 else:
@@ -83,20 +100,14 @@ async def process_orders(
             elif topic == "order_updates":
                 order_id = data.get("order_id") or data.get("id")
                 status = data.get("status")
-                try:
-                    filled_quantity = float(data.get("filled_quantity") or 0.0)
-                except (ValueError, TypeError):
-                    filled_quantity = 0.0
+                filled_quantity = _to_decimal(data.get("filled_quantity"))
 
-                try:
-                    average_fill_price_raw = data.get("average_fill_price")
-                    average_fill_price = (
-                        float(average_fill_price_raw)
-                        if average_fill_price_raw is not None
-                        else None
-                    )
-                except (ValueError, TypeError):
-                    average_fill_price = None
+                average_fill_price_raw = data.get("average_fill_price")
+                average_fill_price = (
+                    _to_decimal(average_fill_price_raw)
+                    if average_fill_price_raw is not None
+                    else None
+                )
 
                 if order_id and status and is_valid_uuid(order_id):
                     order_updates[order_id] = {
@@ -121,8 +132,8 @@ async def process_orders(
                         "id": trade_id,
                         "order_id": order_id,
                         "symbol": data.get("symbol"),
-                        "price": float(data.get("price") or 0.0),
-                        "quantity": float(data.get("quantity") or 0.0),
+                        "price": _to_decimal(data.get("price")),
+                        "quantity": _to_decimal(data.get("quantity")),
                         "timestamp": float(data.get("timestamp") or 0.0),
                     }
                 else:
@@ -139,8 +150,8 @@ async def process_orders(
                     balance_upserts[key] = {
                         "user_id": user_id,
                         "currency": currency,
-                        "available": data.get("available", 0.0),
-                        "locked": data.get("locked", 0.0),
+                        "available": _to_decimal(data.get("available")),
+                        "locked": _to_decimal(data.get("locked")),
                     }
                 else:
                     logger.warning("ignored_balance_invalid_data", data=data)

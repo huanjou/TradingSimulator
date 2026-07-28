@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 
 from app.schemas.order import OrderStatusChoice, OrderTypeChoice, SideChoice
 
@@ -12,9 +13,9 @@ class OrderEntity:
     symbol: str
     side: SideChoice
     order_type: OrderTypeChoice
-    quantity: float
+    quantity: Decimal
     status: OrderStatusChoice
-    price: float | None = None
+    price: Decimal | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

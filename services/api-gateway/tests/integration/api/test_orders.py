@@ -1,4 +1,5 @@
 import asyncio
+from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
@@ -135,8 +136,11 @@ async def test_create_order_publishes_to_kafka(auth_client):
         assert kafka_payload["symbol"] == "BTC/USD"
         assert kafka_payload["side"] == "BUY"
         assert kafka_payload["order_type"] == "LIMIT"
-        assert kafka_payload["quantity"] == 1.5
-        assert kafka_payload["price"] == 40000.0
+        # Money is published as strings to preserve exact Decimal precision.
+        assert isinstance(kafka_payload["quantity"], str)
+        assert isinstance(kafka_payload["price"], str)
+        assert Decimal(kafka_payload["quantity"]) == Decimal("1.5")
+        assert Decimal(kafka_payload["price"]) == Decimal("40000.00")
         assert kafka_payload["status"] == "PENDING"
 
 

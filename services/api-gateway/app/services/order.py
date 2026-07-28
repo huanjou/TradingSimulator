@@ -35,8 +35,15 @@ class OrderService:
                     "symbol": domain_order.symbol,
                     "side": domain_order.side.value,
                     "order_type": domain_order.order_type.value,
-                    "quantity": domain_order.quantity,
-                    "price": domain_order.price,
+                    # Money is sent as a string to preserve exact precision
+                    # end-to-end (orjson cannot serialize Decimal, and floats
+                    # would reintroduce rounding drift).
+                    "quantity": str(domain_order.quantity),
+                    "price": (
+                        str(domain_order.price)
+                        if domain_order.price is not None
+                        else None
+                    ),
                     "status": domain_order.status.value,
                 },
             )

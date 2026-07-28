@@ -1,5 +1,6 @@
 import enum
 import uuid
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -27,8 +28,8 @@ class OrderBase(BaseModel):
     )
     side: SideChoice
     order_type: OrderTypeChoice
-    quantity: float = Field(..., gt=0, description="Amount to buy or sell")
-    price: float | None = Field(
+    quantity: Decimal = Field(..., gt=0, description="Amount to buy or sell")
+    price: Decimal | None = Field(
         None,
         gt=0,
         description="Price is required for LIMIT orders, optional for MARKET",

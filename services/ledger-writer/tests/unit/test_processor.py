@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from unittest.mock import AsyncMock
 
 import pytest
@@ -123,8 +124,9 @@ async def test_process_balance_updates(mock_session, mock_repos):
     assert len(args[1]) == 1
     assert args[1][0]["user_id"] == "user1"
     assert args[1][0]["currency"] == "USD"
-    assert args[1][0]["available"] == "5000.0"
-    assert args[1][0]["locked"] == "100.0"
+    # Money is parsed into exact Decimal by the processor.
+    assert args[1][0]["available"] == Decimal("5000.0")
+    assert args[1][0]["locked"] == Decimal("100.0")
 
 
 @pytest.mark.asyncio
