@@ -120,22 +120,35 @@ export default function OrderHistory() {
 
   // Subscribe to private user events (WebSocket)
   useEffect(() => {
-    let ws: WebSocket;
+    let ws: WebSocket | null = null;
     let reconnectTimer: NodeJS.Timeout;
+    // React 18 StrictMode double-mounts effects in dev, so the first socket can
+    // still be CONNECTING when cleanup runs. Track teardown to avoid closing a
+    // connecting socket (which logs "closed before the connection is
+    // established") and to suppress the spurious error/reconnect that follows.
+    let isTeardown = false;
 
     const connectWS = () => {
+      if (isTeardown) return;
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       ws = new WebSocket(`${protocol}//${window.location.host}/ws/notifications`);
 
       ws.onopen = () => {
+        // If the effect was torn down while still connecting, close cleanly now.
+        if (isTeardown) {
+          ws?.close();
+          return;
+        }
         console.log('[WS] Connected to notifications');
       };
 
       ws.onerror = (err) => {
+        if (isTeardown) return;
         console.error('[WS] Error:', err);
       };
 
       ws.onclose = (event) => {
+        if (isTeardown) return;
         console.log('[WS] Closed:', event.code, event.reason);
         // Attempt to reconnect after 3 seconds
         reconnectTimer = setTimeout(connectWS, 3000);
@@ -212,10 +225,16 @@ export default function OrderHistory() {
     connectWS();
 
     return () => {
+      isTeardown = true;
       clearTimeout(reconnectTimer);
       if (ws) {
         ws.onclose = null; // prevent reconnect
-        ws.close();
+        ws.onerror = null; // suppress the spurious error from a mid-connect close
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+        // If still CONNECTING, the onopen handler above closes it once ready
+        // (guarded by isTeardown), avoiding a close-before-established error.
       }
     };
   }, []);
