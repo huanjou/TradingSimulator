@@ -18,6 +18,14 @@ services:
   # ==========================================
   postgres-primary:
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
     ports: !reset []
     environment:
       POSTGRESQL_REPLICATION_MODE: master
@@ -29,6 +37,14 @@ services:
 
   postgres-replica:
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
     ports: !reset []
     environment:
       POSTGRESQL_REPLICATION_MODE: slave
@@ -40,10 +56,26 @@ services:
 
   kafka:
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
     ports: !reset []
 
   redis:
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     ports: !reset []
     command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --save 60 1 --loglevel warning
     healthcheck:
@@ -92,6 +124,14 @@ services:
 
   nginx:
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     ports:
       - "80:80"
       - "443:443"
@@ -120,6 +160,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     ports: !reset []
     volumes: !reset []
     environment:
@@ -132,6 +180,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     volumes: !reset []
     environment:
       - ENV=production
@@ -141,6 +197,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     volumes: !reset []
     environment:
       - ENV=production
@@ -151,6 +215,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     ports: !reset []
     volumes: !reset []
     environment:
@@ -163,6 +235,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
     volumes: !reset []
     environment:
       - ENV=production
@@ -175,6 +255,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     volumes: !reset []
     environment:
       - ENV=production
@@ -184,6 +272,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     ports: !reset []
     volumes: !reset []
     environment:
@@ -194,6 +290,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     ports: !reset []
     volumes: !reset []
     environment:
@@ -205,6 +309,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     ports: !reset []
     volumes: !reset []
     environment:
@@ -221,6 +333,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     ports: !reset []
     volumes: !reset []
     environment:
@@ -234,6 +354,14 @@ services:
     build:
       target: production
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     ports: !reset []
     volumes: !reset []
     environment:
