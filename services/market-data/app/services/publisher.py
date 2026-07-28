@@ -13,6 +13,7 @@ class MarketDataPublisher:
         self.producer = AIOKafkaProducer(
             bootstrap_servers=self.broker_url,
             value_serializer=lambda v: orjson.dumps(v),
+            acks="all",
         )
 
     async def start(self):

@@ -19,6 +19,7 @@ class KafkaProducerClient:
             bootstrap_servers=settings.KAFKA_BROKER,
             value_serializer=lambda v: orjson.dumps(v),
             linger_ms=5,
+            acks="all",
         )
         await self.producer.start()
         logger.info("Kafka Producer started successfully.")

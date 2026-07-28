@@ -16,6 +16,7 @@ class KafkaPublisher:
         self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BROKER,
             linger_ms=5,
+            acks="all",
         )
 
     async def start(self):
