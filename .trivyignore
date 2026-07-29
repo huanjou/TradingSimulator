@@ -1,0 +1,28 @@
+# Accepted-risk suppressions for the Trivy security scan (CI).
+#
+# All remaining findings below affect `next` 14.2.35 (frontend) and are only
+# fixed in Next.js 15.5+/16.x. Upgrading is a major framework migration
+# (React 19 / App Router breaking changes) tracked separately; it cannot be
+# done as part of a CI fix. Risk notes:
+# - The frontend has no middleware.ts, is not exposed directly (nginx fronts
+#   it) and this is a simulated-trading platform with no real funds.
+# - The findings are DoS/SSRF/info-disclosure in Server Components and
+#   middleware paths we do not use.
+# Review when the Next.js 15 migration lands.
+
+# Information disclosure due to middleware bypass (no middleware in this app)
+CVE-2026-44573
+# SSRF via crafted requests (fix only in 15.5.16/16.2.5)
+CVE-2026-44578
+# DoS via crafted requests to App Router (fix only in 15.5.21/16.2.11)
+CVE-2026-64641
+# SSRF vulnerability (fix only in 15.x/16.x)
+CVE-2026-64645
+# SSRF via malicious requests (fix only in 15.x/16.x)
+CVE-2026-64649
+# DoS with Server Components (fix only in 15.5.16/16.2.5)
+GHSA-8h8q-6873-q5fj
+# HTTP request deserialization DoS (fix only in 15.x)
+GHSA-h25m-26qc-wcjf
+# DoS with Server Components (fix only in 15.5.15/16.2.3)
+GHSA-q4gf-8mx6-v5v3

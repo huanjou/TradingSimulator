@@ -21,7 +21,9 @@ jobs:
 
       - name: Start infrastructure
         run: |
-          make build
+          # Build/start only the benchmarked services and their dependencies;
+          # the full stack (frontend, observability) exhausts the CI runner.
+          make benchmark-up
           echo "Waiting for the benchmarked services to report healthy..."
           ready=0
           for attempt in $(seq 1 60); do

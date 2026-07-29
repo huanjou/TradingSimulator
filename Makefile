@@ -67,11 +67,18 @@ limiter-test:
 benchmark-engine-core:
 	docker exec exchange_trading_engine python -m tests.benchmark_core
 
+# Поднимает только сервисы, нужные для бенчмарков (+ их зависимости),
+# чтобы не собирать весь стек (frontend, observability) на CI-раннере
+benchmark-up:
+	cd infra && docker compose up --build -d trading-engine ledger-writer
+
+# KAFKA_BROKER/POSTGRES_URL уже заданы в окружении контейнеров через docker-compose,
+# поэтому не переопределяем их хардкодом (пароль БД может отличаться из-за infra/.env)
 benchmark-engine-kafka:
-	docker exec -e KAFKA_BROKER="kafka:9092" exchange_trading_engine python -m tests.benchmark_kafka
+	docker exec exchange_trading_engine python -m tests.benchmark_kafka
 
 benchmark-ledger:
-	docker exec -e KAFKA_BROKER="kafka:9092" -e POSTGRES_URL="postgresql+asyncpg://admin:password@postgres-primary:5432/ledger_db" exchange_ledger_writer python -m tests.benchmark_db
+	docker exec exchange_ledger_writer python -m tests.benchmark_db
 
 # ==========================================
 # PRODUCTION
