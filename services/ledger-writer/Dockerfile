@@ -76,8 +76,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Копируем исходный код приложения
+# Копируем исходный код приложения и миграции (CMD запускает
+# alembic upgrade и main.py из корня сервиса)
 COPY ./app ./app
+COPY ./alembic ./alembic
+COPY main.py alembic.ini ./
 
 # Меняем владельца файлов на безопасного пользователя
 RUN chown -R webuser:webuser /app

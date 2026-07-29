@@ -85,5 +85,6 @@ COPY ./app ./app
 RUN chown -R webuser:webuser /app
 USER webuser
 
-# Запускаем без --reload (в продакшене используем gunicorn с uvicorn workers)
-CMD ["gunicorn", "app.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+# Запускаем без --reload (в продакшене используем uvicorn с несколькими workers;
+# gunicorn не входит в зависимости сервиса)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

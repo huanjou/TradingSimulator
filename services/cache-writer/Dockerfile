@@ -76,8 +76,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-# Копируем исходный код приложения
+# Копируем исходный код приложения (main.py — точка входа в корне сервиса)
 COPY ./app ./app
+COPY main.py ./
 
 # Меняем владельца файлов на безопасного пользователя
 RUN chown -R webuser:webuser /app

@@ -12,6 +12,7 @@ import {
   Responsive,
   WidthProvider,
   Layout,
+  LayoutItem,
   ResponsiveLayouts as Layouts,
 } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
@@ -30,7 +31,7 @@ const TVChart = dynamic(() => import('@/components/TVChart'), {
   ),
 });
 
-const generateDefaultLayout = (): Layout[] => {
+const generateDefaultLayout = (): LayoutItem[] => {
   if (typeof window === 'undefined') {
     return [
       { i: 'chart', x: 0, y: 0, w: 12, h: 16, minW: 4, minH: 6 },
@@ -112,7 +113,7 @@ export default function Dashboard() {
     }
   }, [layoutResetTrigger]);
 
-  const onLayoutChange = (currentLayout: Layout[], allLayouts: Layouts) => {
+  const onLayoutChange = (currentLayout: Layout, allLayouts: Layouts) => {
     setLayouts(allLayouts);
     localStorage.setItem('dashboard-layouts-v8', JSON.stringify(allLayouts));
   };

@@ -85,24 +85,29 @@ services:
   #     server connections);
   #   * transparent reconnection — after a failover only THIS service is
   #     re-pointed to the promoted node, apps just reconnect.
+  # NOTE: bitnami/pgbouncer was discontinued on Docker Hub; edoburu/pgbouncer
+  # is a maintained drop-in (same pgbouncer, different env var names).
   pgbouncer:
-    image: bitnami/pgbouncer:1.22
+    image: edoburu/pgbouncer:v1.25.2-p0
     container_name: exchange_pgbouncer
     restart: always
     environment:
-      POSTGRESQL_HOST: postgres-primary
-      POSTGRESQL_PORT_NUMBER: 5432
-      POSTGRESQL_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      POSTGRESQL_DATABASE: ${POSTGRES_DB:?POSTGRES_DB is required}
-      PGBOUNCER_DATABASE: ${POSTGRES_DB}
-      PGBOUNCER_POOL_MODE: transaction
-      PGBOUNCER_MAX_CLIENT_CONN: 400
-      PGBOUNCER_DEFAULT_POOL_SIZE: 25
-      PGBOUNCER_SERVER_IDLE_TIMEOUT: 300
+      DB_HOST: postgres-primary
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      DB_NAME: ${POSTGRES_DB:?POSTGRES_DB is required}
+      # edoburu defaults to 5432; keep the stable pgbouncer:6432 endpoint
+      # that every writer service already points at.
+      LISTEN_PORT: 6432
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 400
+      DEFAULT_POOL_SIZE: 25
+      SERVER_IDLE_TIMEOUT: 300
       # Required for asyncpg with transaction pooling: PgBouncer >=1.21
       # tracks protocol-level prepared statements across server conns.
-      PGBOUNCER_MAX_PREPARED_STATEMENTS: 200
+      MAX_PREPARED_STATEMENTS: 200
     depends_on:
       postgres-primary:
         condition: service_healthy
@@ -322,7 +327,11 @@ services:
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
 
+  # Prod-only: needs a real domain + DNS pointing at this host. Opt in with
+  # `--profile tls` (or COMPOSE_PROFILES=tls); without it the service is
+  # skipped, so local/staging runs of the prod stack start cleanly.
   certbot:
+    profiles: ["tls"]
     image: certbot/certbot:latest
     container_name: exchange_certbot
     restart: unless-stopped
@@ -528,12 +537,16 @@ services:
       - LOG_LEVEL=INFO
       - BACKEND_CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
       - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      # Prod Redis requires auth (config default is an unauthenticated URL).
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on: !override
       kafka-1:
         condition: service_healthy
       kafka-2:
         condition: service_healthy
       kafka-3:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   notification-ws:
