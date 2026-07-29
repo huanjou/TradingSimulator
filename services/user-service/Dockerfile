@@ -2,12 +2,13 @@ FROM python:3.11-slim as requirements-stage
 WORKDIR /tmp
 RUN pip install poetry poetry-plugin-export
 COPY ./pyproject.toml ./poetry.lock* /tmp/
-RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
-# Separate export with dev tools (pytest & co) for the development/test image
-RUN poetry export -f requirements.txt --with dev --output requirements-dev.txt --without-hashes
+# Export prod + dev dependencies (pytest & co) — the same image is used in
+# dev, prod and CI test containers
+RUN poetry export -f requirements.txt --with dev --output requirements.txt --without-hashes
 
-# Common base with dependencies and application code
-FROM python:3.11-slim as base
+# Runtime (single image for dev and prod); behavior is controlled by
+# APP_RELOAD / APP_WORKERS / APP_HOST / APP_PORT environment variables
+FROM python:3.11-slim as runtime
 WORKDIR /app
 COPY --from=requirements-stage /tmp/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
@@ -15,14 +16,15 @@ COPY ./app /app/app
 COPY ./alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
 
-# Development image (runs as root for convenience with bind mounts)
-FROM base as development
-COPY --from=requirements-stage /tmp/requirements-dev.txt /app/requirements-dev.txt
-RUN pip install --no-cache-dir -r /app/requirements-dev.txt
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
-
-# Production image (non-root, multiple workers)
-FROM base as production
+# Run as a non-root user (always, in dev and prod alike)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"]
+
+#   APP_RELOAD=true  -> uvicorn --reload (dev, hot reload via volume mounts)
+#   APP_RELOAD=false -> uvicorn --workers $APP_WORKERS (prod)
+ENV APP_RELOAD=false \
+    APP_WORKERS=1 \
+    APP_HOST=0.0.0.0 \
+    APP_PORT=8000
+
+CMD ["sh", "-c", "alembic upgrade head && if [ \"$APP_RELOAD\" = \"true\" ]; then exec uvicorn app.main:app --host \"$APP_HOST\" --port \"$APP_PORT\" --reload; else exec uvicorn app.main:app --host \"$APP_HOST\" --port \"$APP_PORT\" --workers \"$APP_WORKERS\"; fi"]

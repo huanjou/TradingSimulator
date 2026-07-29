@@ -24,20 +24,29 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 WORKDIR $PYSETUP_PATH
 COPY pyproject.toml poetry.lock ./
 
-RUN poetry lock && poetry install --only main --no-root
+# Install ALL dependencies (prod + dev: pytest etc.) — the same image is
+# used in dev, prod and CI test containers
+RUN poetry lock && poetry install --no-root
 
 WORKDIR /app
 COPY . .
 
 # Install the app
-RUN poetry lock && poetry install --only main
+RUN poetry lock && poetry install
 
-# Development image (runs as root for convenience with bind mounts)
-FROM base as development
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Runtime (single image for dev and prod); behavior is controlled by
+# APP_RELOAD / APP_WORKERS / APP_HOST / APP_PORT environment variables
+FROM base as runtime
 
-# Production image (non-root)
-FROM base as production
+# Run as a non-root user (always, in dev and prod alike)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+#   APP_RELOAD=true  -> uvicorn --reload (dev, hot reload via volume mounts)
+#   APP_RELOAD=false -> uvicorn --workers $APP_WORKERS (prod)
+ENV APP_RELOAD=false \
+    APP_WORKERS=1 \
+    APP_HOST=0.0.0.0 \
+    APP_PORT=8000
+
+CMD ["sh", "-c", "if [ \"$APP_RELOAD\" = \"true\" ]; then exec uvicorn app.main:app --host \"$APP_HOST\" --port \"$APP_PORT\" --reload; else exec uvicorn app.main:app --host \"$APP_HOST\" --port \"$APP_PORT\" --workers \"$APP_WORKERS\"; fi"]

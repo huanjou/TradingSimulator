@@ -348,8 +348,6 @@ services:
   # МИКРОСЕРВИСЫ (Переопределение для Production)
   # ==========================================
   api-gateway:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -367,6 +365,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - KAFKA_BROKER=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      # Единый образ dev/prod: без reload, несколько uvicorn workers
+      - APP_RELOAD=false
+      - APP_WORKERS=4
     depends_on: !override
       kafka-1:
         condition: service_healthy
@@ -378,8 +379,6 @@ services:
         condition: service_healthy
 
   ledger-writer:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -407,8 +406,6 @@ services:
       - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
 
   cache-writer:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -435,8 +432,6 @@ services:
         condition: service_healthy
 
   query-service:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -459,10 +454,11 @@ services:
       # Reads stay on the replica (POSTGRES_URL from base compose);
       # only the primary (write) connection goes through PgBouncer.
       - POSTGRES_PRIMARY_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      # Единый образ dev/prod: без reload, несколько uvicorn workers
+      - APP_RELOAD=false
+      - APP_WORKERS=4
 
   trading-engine:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -495,8 +491,6 @@ services:
       - POSTGRES_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
 
   market-data:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -520,8 +514,6 @@ services:
         condition: service_healthy
 
   stream-service:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -539,6 +531,9 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092,kafka-2:9092,kafka-3:9092
       # Prod Redis requires auth (config default is an unauthenticated URL).
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      # Единый образ dev/prod: без reload, несколько uvicorn workers
+      - APP_RELOAD=false
+      - APP_WORKERS=4
     depends_on: !override
       kafka-1:
         condition: service_healthy
@@ -550,8 +545,6 @@ services:
         condition: service_healthy
 
   notification-ws:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -568,6 +561,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
       - KAFKA_BROKER=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      # Один worker: WebSocket-соединения хранятся в памяти процесса
+      - APP_RELOAD=false
+      - APP_WORKERS=1
     depends_on: !override
       kafka-1:
         condition: service_healthy
@@ -577,8 +573,6 @@ services:
         condition: service_healthy
 
   user-service:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -600,13 +594,15 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      # Единый образ dev/prod: без reload, несколько uvicorn workers
+      - APP_RELOAD=false
+      - APP_WORKERS=4
     # Skip create-superuser in prod; rely on migrations and manual setup
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"
+      sh -c "alembic upgrade head &&
+             exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers $${APP_WORKERS:-4}"
 
   wallet-service:
-    build:
-      target: production
     restart: always
     deploy:
       resources:
@@ -625,6 +621,8 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
       - KAFKA_BROKER=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - APP_RELOAD=false
+      - APP_WORKERS=1
     depends_on: !override
       kafka-1:
         condition: service_healthy
@@ -635,6 +633,9 @@ services:
 
   frontend:
     build:
+      # Next.js — единственное исключение с отдельным prod-таргетом:
+      # standalone-бандл (node server.js) — принципиально другой рантайм,
+      # чем dev-сервер (npm run dev); см. frontend/Dockerfile
       target: production
     restart: always
     deploy:

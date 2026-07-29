@@ -28,25 +28,18 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 WORKDIR $PYSETUP_PATH
 COPY pyproject.toml poetry.lock* ./
+# Install ALL dependencies (prod + dev: pytest etc.) — the same image is
+# used in dev, prod and CI test containers
 RUN poetry lock && poetry install --no-root
 
-# Development
-FROM python-base as development
-WORKDIR /app
-COPY --from=builder-base $POETRY_HOME $POETRY_HOME
-COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
-
-COPY . .
-
-CMD ["python", "-m", "app.main"]
-
-# Production
-FROM python-base as production
+# Runtime (single image for dev and prod)
+# Kafka producer (not uvicorn): no reload/workers distinction, same CMD everywhere
+FROM python-base as runtime
 WORKDIR /app
 COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
 COPY . .
 
-# Run as a non-root user
+# Run as a non-root user (always, in dev and prod alike)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 

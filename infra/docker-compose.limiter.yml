@@ -47,7 +47,6 @@ services:
     build:
       context: ../services/api-gateway
       dockerfile: Dockerfile
-      target: development
     volumes:
       - ../services/api-gateway:/app
     environment:
@@ -74,7 +73,6 @@ services:
     build:
       context: ../services/ledger-writer
       dockerfile: Dockerfile
-      target: development
     environment:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
@@ -92,7 +90,6 @@ services:
     build:
       context: ../services/cache-writer
       dockerfile: Dockerfile
-      target: development
     environment:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
@@ -109,7 +106,6 @@ services:
     build:
       context: ../services/query-service
       dockerfile: Dockerfile
-      target: development
     environment:
       - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
       - REDIS_URL=redis://test-redis:6379/0
@@ -125,7 +121,6 @@ services:
     build:
       context: ../services/trading-engine
       dockerfile: Dockerfile
-      target: development
     environment:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_ORDER_UPDATES_TOPIC=order_updates
