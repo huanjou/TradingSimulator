@@ -25,6 +25,7 @@ test: test-clean
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-market-data || (cd .. && make test-clean && exit 1)
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-cache-writer || (cd .. && make test-clean && exit 1)
 	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-wallet-service || (cd .. && make test-clean && exit 1)
+	cd infra && docker compose -p test_env -f docker-compose.test.yml run --build --rm test-user-service || (cd .. && make test-clean && exit 1)
 	make test-clean
 
 test-e2e:

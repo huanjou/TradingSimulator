@@ -270,6 +270,24 @@ services:
     command: >
       bash -c "pytest -v"
 
+  test-user-service:
+    build:
+      context: ../services/user-service
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://test_user:test_password@postgres-primary:5432/test_db
+      - TESTING=1
+      - ENVIRONMENT=test
+      - JWT_SECRET=test_secret_for_tests
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    volumes:
+      - ../services/user-service:/app
+    command: >
+      bash -c "pytest -v"
+
   test-wallet-service:
     build:
       context: ../services/wallet-service
