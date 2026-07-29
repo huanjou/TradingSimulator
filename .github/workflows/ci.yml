@@ -33,12 +33,13 @@ jobs:
       # Dependency vulnerabilities (poetry.lock / package-lock.json),
       # leaked secrets, and Dockerfile/compose misconfigurations.
       - name: Trivy scan (deps, secrets, misconfig)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.24.0
         with:
           scan-type: fs
           scan-ref: .
           scanners: vuln,secret,misconfig
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: '1'
           format: table
