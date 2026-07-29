@@ -86,4 +86,7 @@ def test_get_config_consumer(mocker: MockerFixture):
         bootstrap_servers=settings.KAFKA_BROKER,
         group_id="market-data-group",
         auto_offset_reset="latest",
+        isolation_level="read_committed",
+        session_timeout_ms=10000,
+        heartbeat_interval_ms=3000,
     )
