@@ -22,8 +22,25 @@ jobs:
       - name: Start infrastructure
         run: |
           make build
-          echo "Waiting for services to be ready..."
-          sleep 20
+          echo "Waiting for the benchmarked services to report healthy..."
+          ready=0
+          for attempt in $(seq 1 60); do
+            engine=$(docker inspect -f '{{.State.Health.Status}}' exchange_trading_engine 2>/dev/null || echo missing)
+            ledger=$(docker inspect -f '{{.State.Health.Status}}' exchange_ledger_writer 2>/dev/null || echo missing)
+            echo "attempt ${attempt}: trading-engine=${engine} ledger-writer=${ledger}"
+            if [ "$engine" = "healthy" ] && [ "$ledger" = "healthy" ]; then
+              ready=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ready" != "1" ]; then
+            echo "::error::Services did not become healthy within 5 minutes"
+            cd infra && docker compose ps
+            docker logs --tail 200 exchange_trading_engine || true
+            docker logs --tail 200 exchange_ledger_writer || true
+            exit 1
+          fi
 
       - name: Run Trading Engine Core Benchmark
         run: make benchmark-engine-core

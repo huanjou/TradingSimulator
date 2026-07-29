@@ -20,6 +20,11 @@ class FakeAsyncRedis:
             self.storage[name][key] = value
         return 1
 
+    async def incr(self, name: str) -> int:
+        val = int(self.storage.get(name, 0)) + 1
+        self.storage[name] = str(val)
+        return val
+
     async def close(self):
         pass
 

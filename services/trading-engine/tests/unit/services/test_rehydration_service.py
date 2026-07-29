@@ -1,6 +1,7 @@
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
+import asyncpg
 import pytest
 from app.services import rehydration_service
 from app.services.rehydration_service import _normalize_dsn, load_state_from_db
@@ -95,4 +96,36 @@ async def test_load_state_from_db_maps_rows(monkeypatch):
     assert open_orders[0].price == Decimal("50000")
 
     # Connection is always closed.
+    assert fake_conn.closed is True
+
+
+class _MissingSchemaConn:
+    def __init__(self):
+        self.closed = False
+
+    async def fetch(self, query, *args):
+        raise asyncpg.UndefinedTableError('relation "balances" does not exist')
+
+    async def close(self):
+        self.closed = True
+
+
+@pytest.mark.asyncio
+async def test_load_state_from_db_tolerates_missing_ledger_schema(monkeypatch):
+    """A ledger whose migrations have not run yet means "no prior state".
+
+    Raising here would crash-loop the engine on a fresh deployment, so recovery
+    falls back to an empty state instead.
+    """
+    fake_conn = _MissingSchemaConn()
+    monkeypatch.setattr(
+        rehydration_service.asyncpg, "connect", AsyncMock(return_value=fake_conn)
+    )
+
+    wallets, open_orders = await load_state_from_db(
+        "postgresql+asyncpg://u:p@host:5432/db"
+    )
+
+    assert wallets == {}
+    assert open_orders == []
     assert fake_conn.closed is True

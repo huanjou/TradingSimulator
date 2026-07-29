@@ -52,6 +52,14 @@ async def load_state_from_db(
             WHERE status IN ('PENDING', 'PARTIALLY_FILLED')
             """
         )
+    except asyncpg.UndefinedTableError:
+        # The ledger schema is owned by ledger-writer's migrations, which may
+        # not have run yet on a brand new deployment (both services start as
+        # soon as Postgres is healthy). A missing table means the ledger has
+        # never held state, so starting empty cannot destroy any funds --
+        # unlike crashing here, which would leave the engine in a restart loop.
+        logger.warning("cold_start_ledger_schema_absent_starting_empty")
+        return {}, []
     finally:
         await conn.close()
 
