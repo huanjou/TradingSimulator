@@ -91,3 +91,51 @@ async def test_repository_missing_balance_fields_in_redis():
     assert len(wallets) == 1
     assert wallets[0].available == Decimal("0")
     assert wallets[0].locked == Decimal("0")
+
+
+@pytest.mark.asyncio
+async def test_next_balance_version_uses_atomic_per_user_counter(repo, mock_redis):
+    mock_redis.incr.return_value = 4
+
+    version = await repo.next_balance_version("user1")
+
+    # INCR is atomic, so concurrent deposits can never share a version.
+    mock_redis.incr.assert_awaited_once_with("balance_version:user1")
+    assert version == 4
+
+
+@pytest.mark.asyncio
+async def test_next_balance_version_is_scoped_per_user(repo, mock_redis):
+    await repo.next_balance_version("user1")
+    await repo.next_balance_version("user2")
+
+    keys = [c.args[0] for c in mock_redis.incr.await_args_list]
+    assert keys == ["balance_version:user1", "balance_version:user2"]
+
+
+@pytest.mark.asyncio
+async def test_next_balance_version_returns_int_for_string_reply(repo, mock_redis):
+    # Redis may reply with bytes/str depending on decode_responses; the version
+    # must still be a comparable int for the engine's causal ordering check.
+    mock_redis.incr.return_value = b"7"
+    assert await repo.next_balance_version("user1") == 7
+
+    mock_redis.incr.return_value = "8"
+    assert await repo.next_balance_version("user1") == 8
+
+
+@pytest.mark.asyncio
+async def test_next_balance_version_is_monotonic_across_calls():
+    mock_redis = AsyncMock()
+    counter = {"n": 0}
+
+    async def _incr(_key):
+        counter["n"] += 1
+        return counter["n"]
+
+    mock_redis.incr.side_effect = _incr
+    repo = WalletRepository(redis=mock_redis)
+
+    versions = [await repo.next_balance_version("user1") for _ in range(5)]
+
+    assert versions == [1, 2, 3, 4, 5]
