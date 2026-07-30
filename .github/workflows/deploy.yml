@@ -24,7 +24,7 @@ jobs:
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          command_timeout: 30m
+          command_timeout: 60m
           script: |
             set -e
             cd /opt/TradingSimulator
@@ -39,6 +39,10 @@ jobs:
 
             # Pull pre-built external images first
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml pull
+
+            # Stop running containers to free up RAM before building
+            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml down
+
             # Rebuild images sequentially to prevent CPU starvation and Poetry timeouts
             for service in $(docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml config --services); do
               docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml build $service
