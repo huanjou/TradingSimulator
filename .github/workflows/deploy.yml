@@ -1,0 +1,45 @@
+name: Deploy
+
+# Runs automatically after the "CI" workflow completes on main.
+# Deploys only if CI (test + security) succeeded — no manual approval.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    # Only deploy if CI succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/TradingSimulator
+
+            # Pull latest code
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Rebuild and restart the full prod stack
+            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml pull
+            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up --build -d
+
+            # Wait for health checks
+            echo "Waiting for services to be healthy..."
+            sleep 30
+
+            # Verify nginx is responding
+            curl -sk https://localhost/ > /dev/null 2>&1 && echo "Deploy successful" || echo "Health check failed"
+
+            # Cleanup old images
+            docker image prune -f
