@@ -76,10 +76,11 @@ jobs:
             # Login to GHCR to pull private/internal images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull pre-built images (zero CPU/RAM overhead on server)
-            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml pull
+            # Stop running containers to free up RAM before deployment
+            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml down
 
-            # Recreate containers without downtime (rolling update)
+            # Pull latest images and restart containers
+            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml pull
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up -d
 
             # Wait for health checks
