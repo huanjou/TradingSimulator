@@ -11,11 +11,38 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push images
+        run: |
+          docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml build
+          docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml push
+
   deploy:
     name: Deploy to Production
+    needs: build-and-push
     runs-on: ubuntu-latest
-    # Skip if triggered by workflow_run and CI failed
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      packages: read
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
@@ -37,16 +64,13 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Pull pre-built external images first
+            # Login to GHCR to pull private/internal images
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull pre-built images (zero CPU/RAM overhead on server)
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml pull
 
-            # Stop running containers to free up RAM before building
-            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml down
-
-            # Rebuild images sequentially to prevent CPU starvation and Poetry timeouts
-            for service in $(docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml config --services); do
-              docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml build $service
-            done
+            # Recreate containers without downtime (rolling update)
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up -d
 
             # Wait for health checks

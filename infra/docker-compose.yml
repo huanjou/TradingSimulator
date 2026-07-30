@@ -231,6 +231,7 @@ services:
 
 
   api-gateway:
+    image: ghcr.io/huanjou/tradingsimulator/api-gateway:latest
     build:
       context: ../services/api-gateway
       dockerfile: Dockerfile
@@ -273,6 +274,7 @@ services:
       start_period: 15s
 
   ledger-writer:
+    image: ghcr.io/huanjou/tradingsimulator/ledger-writer:latest
     build:
       context: ../services/ledger-writer
       dockerfile: Dockerfile
@@ -301,6 +303,7 @@ services:
       start_period: 15s
 
   cache-writer:
+    image: ghcr.io/huanjou/tradingsimulator/cache-writer:latest
     build:
       context: ../services/cache-writer
       dockerfile: Dockerfile
@@ -328,6 +331,7 @@ services:
       start_period: 15s
 
   query-service:
+    image: ghcr.io/huanjou/tradingsimulator/query-service:latest
     build:
       context: ../services/query-service
       dockerfile: Dockerfile
@@ -360,6 +364,7 @@ services:
       start_period: 15s
 
   trading-engine:
+    image: ghcr.io/huanjou/tradingsimulator/trading-engine:latest
     build:
       context: ../services/trading-engine
       dockerfile: Dockerfile
@@ -391,6 +396,7 @@ services:
       start_period: 30s
 
   market-data:
+    image: ghcr.io/huanjou/tradingsimulator/market-data:latest
     build:
       context: ../services/market-data
       dockerfile: Dockerfile
@@ -417,6 +423,7 @@ services:
       start_period: 15s
 
   stream-service:
+    image: ghcr.io/huanjou/tradingsimulator/stream-service:latest
     build:
       context: ../services/stream-service
       dockerfile: Dockerfile
@@ -443,6 +450,7 @@ services:
       start_period: 15s
 
   notification-ws:
+    image: ghcr.io/huanjou/tradingsimulator/notification-ws:latest
     build:
       context: ../services/notification-ws
       dockerfile: Dockerfile
@@ -472,6 +480,7 @@ services:
       start_period: 15s
 
   user-service:
+    image: ghcr.io/huanjou/tradingsimulator/user-service:latest
     build:
       context: ../services/user-service
       dockerfile: Dockerfile
@@ -510,6 +519,7 @@ services:
       start_period: 15s
 
   wallet-service:
+    image: ghcr.io/huanjou/tradingsimulator/wallet-service:latest
     build:
       context: ../services/wallet-service
       dockerfile: Dockerfile
@@ -539,6 +549,7 @@ services:
       start_period: 15s
 
   frontend:
+    image: ghcr.io/huanjou/tradingsimulator/frontend:latest
     build:
       context: ../frontend
       # Next.js — единственное исключение с отдельными dev/prod таргетами:
