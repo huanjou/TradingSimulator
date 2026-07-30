@@ -37,9 +37,12 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Rebuild and restart the full prod stack
+            # Pull pre-built external images first
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml pull
-            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml build --parallel 1
+            # Rebuild images sequentially to prevent CPU starvation and Poetry timeouts
+            for service in $(docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml config --services); do
+              docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml build $service
+            done
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up -d
 
             # Wait for health checks
