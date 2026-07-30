@@ -50,7 +50,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
           command_timeout: 60m
           script: |
             set -e
