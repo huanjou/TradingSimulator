@@ -43,26 +43,3 @@ jobs:
           trivyignores: .trivyignore
           exit-code: '1'
           format: table
-
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [test, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: deploy
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            set -e
-            cd /opt/TradingSimulator
-            git fetch origin main
-            git reset --hard origin/main
-            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up --build -d
-            sleep 30
-            curl -sk https://localhost/ > /dev/null 2>&1 && echo "Deploy successful" || echo "Health check warning"
-            docker image prune -f
