@@ -1,4 +1,4 @@
-.PHONY: up down build prod-up prod-build logs clean lint setup test
+.PHONY: up down build prod-up prod-down prod-build logs clean lint setup test
 
 # ==========================================
 # DEVELOPMENT
@@ -85,6 +85,9 @@ benchmark-ledger:
 # ==========================================
 prod-up:
 	cd infra && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+prod-down:
+	cd infra && docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 prod-build:
 	cd infra && docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
