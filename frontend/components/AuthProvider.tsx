@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   createAuthStore,
   AuthStoreContext,
@@ -24,9 +24,22 @@ export default function AuthProvider({
     storeRef.current = createAuthStore({
       user: initialUser,
       isAuthenticated: !!initialUser,
-      isInitializing: false,
+      // SSR may fail with an expired access token even though the session is
+      // still refreshable client-side, so stay in the initializing state
+      // until checkAuth() below resolves.
+      isInitializing: !initialUser,
     });
   }
+
+  // If SSR could not authenticate (e.g. expired access token), attempt a
+  // client-side checkAuth(): the axios 401 interceptor will hit /auth/refresh
+  // (the refresh cookie is path-scoped to that endpoint) and retry.
+  useEffect(() => {
+    if (!initialUser) {
+      storeRef.current?.getState().checkAuth();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 2. When a token refresh fails, the session is over: clear auth state so
   // AuthGate falls back to the login screen.
@@ -46,6 +59,13 @@ export default function AuthProvider({
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isInitializing = useAuthStore((s) => s.isInitializing);
+
+  // While the client-side refresh attempt is in flight, render nothing to
+  // avoid flashing the login screen for still-valid sessions.
+  if (isInitializing) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <AuthScreen />;

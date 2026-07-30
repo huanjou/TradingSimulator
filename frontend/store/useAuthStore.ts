@@ -40,6 +40,7 @@ export const createAuthStore = (initialProps?: Partial<AuthState>) => {
     clearError: () => set({ error: null }),
 
     checkAuth: async () => {
+      set({ isInitializing: true });
       try {
         const response = await api.get('/api/v1/users/me');
         set({ user: response.data, isAuthenticated: true, isInitializing: false, error: null });

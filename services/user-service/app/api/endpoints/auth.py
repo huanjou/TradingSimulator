@@ -107,12 +107,13 @@ async def refresh(
 
     new_access_token = await refresh_access_token_service(db, refresh_token)
 
-    # Session cookie: after a browser restart the client re-authenticates via
-    # the refresh cookie anyway (it is persistent only with remember_me).
+    # Persist for the token lifetime so the cookie survives a browser
+    # restart within that window; the browser drops it once it expires.
     response.set_cookie(
         key="access_token",
         value=new_access_token,
         httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         samesite="strict",
         secure=settings.COOKIE_SECURE,
         path="/",
