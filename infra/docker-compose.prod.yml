@@ -324,8 +324,13 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./nginx/docker-entrypoint.sh:/docker-entrypoint-custom.sh:ro
+      # NOT :ro — the entrypoint generates a self-signed cert here when no
+      # real (certbot) certificate exists, e.g. local runs of the prod stack.
+      - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot:ro
+    # Self-signed TLS fallback when certbot certs are absent (local runs).
+    entrypoint: ["sh", "/docker-entrypoint-custom.sh"]
 
   # Prod-only: needs a real domain + DNS pointing at this host. Opt in with
   # `--profile tls` (or COMPOSE_PROFILES=tls); without it the service is
