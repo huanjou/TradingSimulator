@@ -28,6 +28,10 @@ jobs:
             set -e
             cd /opt/TradingSimulator
 
+            # Добавляем github.com в список известных хостов, чтобы git fetch не падал
+            mkdir -p ~/.ssh
+            ssh-keyscan github.com >> ~/.ssh/known_hosts
+
             # Pull latest code
             git fetch origin main
             git reset --hard origin/main
