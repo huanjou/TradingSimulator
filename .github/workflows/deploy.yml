@@ -33,6 +33,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push images
+        env:
+          POSTGRES_REPLICA_USER: dummy
+          POSTGRES_REPLICA_PASSWORD: dummy
+          POSTGRES_USER: dummy
+          POSTGRES_PASSWORD: dummy
+          POSTGRES_DB: dummy
+          REDIS_PASSWORD: dummy
+          GRAFANA_ADMIN_PASSWORD: dummy
+          JWT_SECRET: dummy
+          PUBLIC_ORIGIN: dummy
         run: |
           docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml build
           docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml push
