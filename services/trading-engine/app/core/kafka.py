@@ -20,7 +20,26 @@ class KafkaPublisher:
         )
 
     async def start(self):
-        await self.producer.start()
+        max_retries = 30
+        import asyncio
+
+        for attempt in range(max_retries):
+            try:
+                await self.producer.start()
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(
+                        "Failed to start Kafka publisher after multiple attempts",
+                        error=str(e),
+                    )
+                    raise
+                logger.warning(
+                    "Failed to connect to Kafka, retrying...",
+                    attempt=attempt + 1,
+                    error=str(e),
+                )
+                await asyncio.sleep(2)
 
     async def stop(self):
         await self.producer.stop()
@@ -111,7 +130,27 @@ class KafkaConsumerRunner:
         )
 
     async def start(self):
-        await self.consumer.start()
+        max_retries = 30
+        import asyncio
+
+        for attempt in range(max_retries):
+            try:
+                await self.consumer.start()
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(
+                        "Failed to start Kafka consumer after multiple attempts",
+                        error=str(e),
+                    )
+                    raise
+                logger.warning(
+                    "Failed to connect to Kafka, retrying...",
+                    attempt=attempt + 1,
+                    error=str(e),
+                )
+                await asyncio.sleep(2)
+
         logger.info(
             "kafka_consumer_started",
             topics=[
