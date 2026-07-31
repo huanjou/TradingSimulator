@@ -34,8 +34,8 @@ const TVChart = dynamic(() => import('@/components/TVChart'), {
 const generateDefaultLayout = (): LayoutItem[] => {
   if (typeof window === 'undefined') {
     return [
-      { i: 'chart', x: 0, y: 0, w: 12, h: 16, minW: 4, minH: 6 },
-      { i: 'order-history', x: 0, y: 16, w: 10, h: 7, minW: 4, minH: 5 },
+      { i: 'chart', x: 0, y: 0, w: 12, h: 16, minW: 2, minH: 6 },
+      { i: 'order-history', x: 0, y: 16, w: 10, h: 7, minW: 2, minH: 5 },
       { i: 'order-entry', x: 10, y: 16, w: 2, h: 7, minW: 2, minH: 7 },
     ];
   }
@@ -53,8 +53,8 @@ const generateDefaultLayout = (): LayoutItem[] => {
   const chartRows = Math.max(6, totalRows - bottomRows);
 
   return [
-    { i: 'chart', x: 0, y: 0, w: 12, h: chartRows, minW: 4, minH: 6 },
-    { i: 'order-history', x: 0, y: chartRows, w: 10, h: bottomRows, minW: 4, minH: 5 },
+    { i: 'chart', x: 0, y: 0, w: 12, h: chartRows, minW: 2, minH: 6 },
+    { i: 'order-history', x: 0, y: chartRows, w: 10, h: bottomRows, minW: 2, minH: 5 },
     { i: 'order-entry', x: 10, y: chartRows, w: 2, h: bottomRows, minW: 2, minH: 6 },
   ];
 };
@@ -67,6 +67,7 @@ export default function Dashboard() {
 
   const [layouts, setLayouts] = useState<Layouts>({ lg: [] }); // Init empty, set in useEffect
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -92,6 +93,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     setMounted(true);
+
+    // Detect mobile to disable drag/resize on small screens
+    const mql = window.matchMedia('(max-width: 767px)');
+    setIsMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+
     const saved = localStorage.getItem('dashboard-layouts-v8');
     if (saved) {
       try {
@@ -103,6 +111,8 @@ export default function Dashboard() {
     } else {
       setLayouts({ lg: generateDefaultLayout() });
     }
+
+    return () => mql.removeEventListener('change', handler);
   }, []);
 
   useEffect(() => {
@@ -127,6 +137,37 @@ export default function Dashboard() {
     );
   }
 
+  // Mobile: fixed layout without grid
+  if (isMobile) {
+    return (
+      <div className="min-h-screen w-full bg-black text-zinc-100 font-sans flex flex-col">
+        {/* Sticky Header */}
+        <div className="shrink-0 px-4 sticky top-0 z-50 bg-black">
+          <Navbar />
+        </div>
+
+        {/* Chart + Order Form fill the remaining viewport */}
+        <div className="flex flex-col" style={{ height: 'calc(100vh - 70px)' }}>
+          <div className="flex-1 min-h-0 bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden m-2 mb-1">
+            <TVChart theme="dark" />
+          </div>
+          <div className="shrink-0 min-h-[320px] bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden m-2 mt-1">
+            <OrderEntry />
+          </div>
+        </div>
+
+        {/* Positions / Orders — half screen */}
+        <div
+          className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden m-2"
+          style={{ height: '50vh' }}
+        >
+          <OrderHistory />
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop: draggable grid layout
   return (
     <div className="min-h-screen w-full bg-black text-zinc-100 font-sans flex flex-col">
       {/* Header */}
@@ -135,7 +176,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main Grid */}
-      <div className="flex-1 w-full p-2">
+      <div className="flex-1 w-full p-2 overflow-x-hidden">
         <ResponsiveGridLayout
           className="layout"
           layouts={layouts}
@@ -145,10 +186,11 @@ export default function Dashboard() {
           onLayoutChange={onLayoutChange}
           draggableHandle=".drag-handle"
           margin={[16, 16]}
+          isBounded={true}
         >
           <div
             key="chart"
-            data-grid={{ minW: 4, minH: 8 }}
+            data-grid={{ minW: 2, minH: 8 }}
             className="flex flex-col bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
           >
             <div
@@ -180,7 +222,7 @@ export default function Dashboard() {
 
           <div
             key="order-history"
-            data-grid={{ minW: 4, minH: 5 }}
+            data-grid={{ minW: 2, minH: 5 }}
             className="flex flex-col bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden"
           >
             <div

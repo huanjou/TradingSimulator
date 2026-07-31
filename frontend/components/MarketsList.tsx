@@ -76,6 +76,28 @@ const seedPricesFrom = (symbolList: SymbolData[]): Record<string, number> => {
   return seeded;
 };
 
+const CoinIcon = ({ symbol }: { symbol: string }) => {
+  const [error, setError] = useState(false);
+  const baseCurrency = symbol.split('/')[0].toLowerCase();
+
+  if (error) {
+    return (
+      <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-emerald-500 border border-zinc-700 shrink-0">
+        {symbol.split('/')[0].substring(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={`https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/${baseCurrency}.svg`}
+      alt={baseCurrency}
+      className="w-8 h-8 rounded-full shrink-0"
+      onError={() => setError(true)}
+    />
+  );
+};
+
 export default function MarketsList({ initialSymbols }: MarketsListProps) {
   const [symbols, setSymbols] = useState<SymbolData[]>(initialSymbols);
   // Seed with last known prices from the API so prices are visible
@@ -213,9 +235,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
                 >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-emerald-500 border border-zinc-700 shrink-0">
-                        {symbol.name.split('/')[0].substring(0, 2)}
-                      </div>
+                      <CoinIcon symbol={symbol.name} />
                       <span className="font-semibold text-zinc-200">{symbol.name}</span>
                     </div>
                     <PriceCell price={prices[symbol.name]} />
@@ -265,9 +285,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-emerald-500 border border-zinc-700">
-                          {symbol.name.split('/')[0].substring(0, 2)}
-                        </div>
+                        <CoinIcon symbol={symbol.name} />
                         <span className="font-semibold text-zinc-200">{symbol.name}</span>
                       </div>
                     </td>
