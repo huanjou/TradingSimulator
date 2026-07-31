@@ -262,13 +262,13 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
           </div>
 
           {/* Desktop View */}
-          <table className="hidden md:table w-full text-left text-sm">
+          <table className="hidden md:table w-full table-fixed text-left text-sm">
             <thead className="bg-zinc-900 border-b border-zinc-800 text-zinc-400">
               <tr>
-                <th className="px-6 py-4 font-medium">Asset Name</th>
-                <th className="px-6 py-4 font-medium text-right">Live Price</th>
-                <th className="px-6 py-4 font-medium text-right">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Action</th>
+                <th className="px-6 py-4 font-medium w-1/3">Asset Name</th>
+                <th className="px-6 py-4 font-medium text-right w-1/4">Live Price</th>
+                <th className="px-6 py-4 font-medium text-right w-1/4">Status</th>
+                <th className="px-6 py-4 font-medium text-right w-1/6">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">

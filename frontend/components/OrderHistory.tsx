@@ -490,26 +490,26 @@ export default function OrderHistory() {
         </div>
 
         {/* Desktop View */}
-        <table className="hidden md:table w-full text-sm text-left">
+        <table className="hidden md:table w-full table-fixed text-sm text-left">
           <thead className="text-xs text-zinc-500 uppercase sticky top-0 bg-zinc-900 z-10">
             <tr>
-              {activeTab !== 'positions' && <th className="py-3 px-2 font-medium">Time</th>}
-              <th className="py-3 px-2 font-medium">Pair</th>
-              {activeTab !== 'positions' && <th className="py-3 px-2 font-medium">Type</th>}
-              <th className="py-3 px-2 font-medium text-right">
+              {activeTab !== 'positions' && <th className="py-3 px-2 font-medium w-1/6">Time</th>}
+              <th className="py-3 px-2 font-medium w-1/6">Pair</th>
+              {activeTab !== 'positions' && <th className="py-3 px-2 font-medium w-[10%]">Type</th>}
+              <th className="py-3 px-2 font-medium text-right w-1/6">
                 {activeTab === 'positions' ? 'Avg Price' : 'Req. Price'}
               </th>
               {activeTab === 'positions' && (
-                <th className="py-3 px-2 font-medium text-right">Cur Price</th>
+                <th className="py-3 px-2 font-medium text-right w-1/6">Cur Price</th>
               )}
               {activeTab !== 'positions' && (
-                <th className="py-3 px-2 font-medium text-right">Exec. Price</th>
+                <th className="py-3 px-2 font-medium text-right w-1/6">Exec. Price</th>
               )}
-              <th className="py-3 px-2 font-medium text-right">Amount</th>
+              <th className="py-3 px-2 font-medium text-right w-1/6">Amount</th>
               {activeTab === 'positions' ? (
-                <th className="py-3 px-2 font-medium text-right">PnL</th>
+                <th className="py-3 px-2 font-medium text-right w-1/6">PnL</th>
               ) : (
-                <th className="py-3 px-2 font-medium text-right">Status</th>
+                <th className="py-3 px-2 font-medium text-right w-[10%]">Status</th>
               )}
             </tr>
           </thead>
