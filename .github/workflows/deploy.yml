@@ -76,11 +76,10 @@ jobs:
             # Login to GHCR to pull private/internal images
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Stop running containers to free up RAM before deployment
-            docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml down
-
-            # Pull latest images and restart containers
+            # Pull latest images in the background while old containers are still running
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml pull
+
+            # Immediately start the new containers (Docker will automatically recreate only updated ones)
             docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up -d
 
             # Wait for health checks
