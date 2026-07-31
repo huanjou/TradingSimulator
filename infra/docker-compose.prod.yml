@@ -276,7 +276,7 @@ services:
   # ==========================================
   jaeger:
     restart: always
-    ports:
+    ports: !reset
       - "127.0.0.1:16686:16686"
 
   otel-collector:
@@ -285,7 +285,7 @@ services:
 
   prometheus:
     restart: always
-    ports:
+    ports: !reset
       - "127.0.0.1:9090:9090"
 
   loki:
@@ -305,7 +305,7 @@ services:
 
   grafana:
     restart: always
-    ports:
+    ports: !reset
       - "127.0.0.1:3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
