@@ -177,7 +177,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
       <Navbar />
 
       <div className="max-w-5xl mx-auto w-full mt-6 flex flex-col gap-6">
-        <div className="flex justify-between items-end">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
           <div>
             <h2 className="text-2xl font-bold tracking-tight mb-2">Markets</h2>
             <p className="text-zinc-400 text-sm">
@@ -185,7 +185,7 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
             </p>
           </div>
 
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               type="text"
@@ -197,8 +197,52 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden shadow-xl">
-          <table className="w-full text-left text-sm">
+        <div className="bg-transparent md:bg-zinc-900/50 md:border md:border-zinc-800/50 rounded-xl md:overflow-hidden md:shadow-xl">
+          {/* Mobile View */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {symbols.map((symbol, index) => {
+              const isLast = index === symbols.length - 1;
+              return (
+                <div
+                  key={`mobile-${symbol.name}`}
+                  ref={(node) => {
+                    if (isLast && node) lastElementRef(node);
+                  }}
+                  className="bg-zinc-900/50 border border-zinc-800/50 rounded-lg p-4 flex flex-col gap-4 active:bg-zinc-800/50 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/?market=${symbol.name}`)}
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-emerald-500 border border-zinc-700 shrink-0">
+                        {symbol.name.split('/')[0].substring(0, 2)}
+                      </div>
+                      <span className="font-semibold text-zinc-200">{symbol.name}</span>
+                    </div>
+                    <PriceCell price={prices[symbol.name]} />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    {symbol.is_active ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-xs font-medium border border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Trading
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-rose-500/10 text-rose-500 text-xs font-medium border border-rose-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        Offline
+                      </span>
+                    )}
+                    <span className="text-xs font-medium text-emerald-500 opacity-80 flex items-center gap-1">
+                      Spot <span className="text-lg leading-none">&rarr;</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop View */}
+          <table className="hidden md:table w-full text-left text-sm">
             <thead className="bg-zinc-900 border-b border-zinc-800 text-zinc-400">
               <tr>
                 <th className="px-6 py-4 font-medium">Asset Name</th>
@@ -216,7 +260,8 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
                     ref={(node) => {
                       if (isLast && node) lastElementRef(node);
                     }}
-                    className="hover:bg-zinc-800/30 transition-colors group"
+                    className="hover:bg-zinc-800/30 transition-colors group cursor-pointer"
+                    onClick={() => router.push(`/?market=${symbol.name}`)}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -244,10 +289,13 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => router.push(`/?market=${symbol.name}`)}
-                        className="px-4 py-2 bg-zinc-800 hover:bg-emerald-600 hover:text-white text-zinc-300 rounded-lg text-xs font-medium transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/?market=${symbol.name}`);
+                        }}
+                        className="px-4 py-2 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-500 hover:text-white rounded-lg text-xs font-medium transition-colors"
                       >
-                        Trade
+                        Spot
                       </button>
                     </td>
                   </tr>

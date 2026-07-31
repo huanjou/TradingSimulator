@@ -379,7 +379,118 @@ export default function OrderHistory() {
       </div>
 
       <div className="flex-1 overflow-auto pr-2">
-        <table className="w-full text-sm text-left">
+        {/* Mobile View */}
+        <div className="flex flex-col gap-3 md:hidden">
+          {activeTab === 'positions' ? (
+            positions.length === 0 && !loading ? (
+              <div className="text-center py-8 text-zinc-500">No open positions</div>
+            ) : (
+              positions.map((pos) => {
+                const currentPrice = prices[pos.symbol];
+                let pnl: number | null = null;
+                if (currentPrice) {
+                  pnl = (currentPrice - pos.avgPrice) * pos.quantity;
+                }
+                return (
+                  <div
+                    key={pos.symbol}
+                    className="bg-zinc-800/30 p-3 rounded-lg border border-zinc-800/50 flex flex-col gap-1 text-sm"
+                  >
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Pair</span>
+                      <span className="text-zinc-200 font-medium">{pos.symbol}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">AVG</span>
+                      <span className="text-zinc-300 font-mono">${pos.avgPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">CUR PRICE</span>
+                      <span className="text-zinc-300 font-mono">
+                        {currentPrice ? `$${currentPrice.toFixed(2)}` : '--'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">AMOUNT</span>
+                      <span className="text-zinc-300 font-mono">
+                        {parseFloat(pos.quantity.toFixed(6))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">PNL</span>
+                      <span
+                        className={`font-mono font-medium ${
+                          pnl !== null
+                            ? pnl >= 0
+                              ? 'text-emerald-400'
+                              : 'text-rose-400'
+                            : 'text-zinc-500'
+                        }`}
+                      >
+                        {pnl !== null ? `${pnl > 0 ? '+' : ''}$${pnl.toFixed(2)}` : '--'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )
+          ) : displayedOrders.length === 0 && !loading ? (
+            <div className="text-center py-8 text-zinc-500">No orders found</div>
+          ) : (
+            displayedOrders.map((order) => (
+              <div
+                key={order.id}
+                className="bg-zinc-800/30 p-3 rounded-lg border border-zinc-800/50 flex flex-col gap-1 text-sm"
+              >
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Pair</span>
+                  <span className="text-zinc-200 font-medium">{order.symbol}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Time</span>
+                  <span className="text-zinc-400">
+                    {order.created_at ? format(new Date(order.created_at), 'HH:mm:ss') : '--:--:--'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Type</span>
+                  <span
+                    className={`font-semibold ${
+                      order.side === 'BUY' ? 'text-emerald-500' : 'text-rose-500'
+                    }`}
+                  >
+                    {order.side}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Req. Price</span>
+                  <span className="text-zinc-300 font-mono">
+                    {order.price ? `$${order.price.toFixed(2)}` : 'MKT'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Exec. Price</span>
+                  <span className="text-zinc-400 font-mono">
+                    {order.average_fill_price ? `$${order.average_fill_price.toFixed(2)}` : '--'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Amount</span>
+                  <span className="text-zinc-300 font-mono">{order.quantity}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Status</span>
+                  <span className={`font-medium ${getStatusColor(order.status)}`}>
+                    {order.status}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View */}
+        <table className="hidden md:table w-full text-sm text-left">
           <thead className="text-xs text-zinc-500 uppercase sticky top-0 bg-zinc-900 z-10">
             <tr>
               {activeTab !== 'positions' && <th className="py-3 px-2 font-medium">Time</th>}
