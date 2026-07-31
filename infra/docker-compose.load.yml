@@ -200,8 +200,11 @@ services:
       - ENVIRONMENT=test
       - ADMIN_EMAIL=admin@admin.com
       - ADMIN_PASSWORD=admin
+      - REDIS_URL=redis://test-redis:6379/0
     depends_on:
       test-db:
+        condition: service_healthy
+      test-redis:
         condition: service_healthy
     volumes:
       - ../services/user-service:/app

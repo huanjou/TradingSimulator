@@ -36,7 +36,15 @@ export function setup() {
   // Extract token from response or cookies
   let token = null;
   if (res.status === 200) {
-    token = res.json("access_token");
+    if (
+      res.cookies &&
+      res.cookies["access_token"] &&
+      res.cookies["access_token"].length > 0
+    ) {
+      token = res.cookies["access_token"][0].value;
+    } else {
+      console.error("No access_token cookie found in response");
+    }
   }
 
   return { token: token };

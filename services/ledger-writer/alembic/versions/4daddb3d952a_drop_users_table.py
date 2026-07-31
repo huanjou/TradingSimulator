@@ -22,9 +22,10 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     op.drop_constraint("orders_user_id_fkey", "orders", type_="foreignkey")
-    op.drop_index(op.f("ix_users_id"), table_name="users", if_exists=True)
-    op.drop_index(op.f("ix_users_email"), table_name="users", if_exists=True)
-    op.drop_table("users")
+    # We no longer drop the users table here because user-service manages it
+    # op.drop_index(op.f("ix_users_id"), table_name="users", if_exists=True)
+    # op.drop_index(op.f("ix_users_email"), table_name="users", if_exists=True)
+    # op.drop_table("users")
 
 
 def downgrade() -> None:
