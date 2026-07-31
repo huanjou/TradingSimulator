@@ -29,7 +29,25 @@ class NotificationKafkaConsumer:
         self.task = None
 
     async def start(self):
-        await self.consumer.start()
+        max_retries = 30
+        for attempt in range(max_retries):
+            try:
+                await self.consumer.start()
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(
+                        "Failed to start Kafka consumer after multiple attempts",
+                        error=str(e),
+                    )
+                    raise
+                logger.warning(
+                    "Failed to connect to Kafka, retrying...",
+                    attempt=attempt + 1,
+                    error=str(e),
+                )
+                await asyncio.sleep(2)
+
         self.task = asyncio.create_task(self._consume())
         logger.info("kafka_consumer_started")
 

@@ -38,7 +38,26 @@ async def consume(shutdown_event: asyncio.Event | None = None):
         session_timeout_ms=10000,
         heartbeat_interval_ms=3000,
     )
-    await consumer.start()
+
+    max_retries = 30
+    for attempt in range(max_retries):
+        try:
+            await consumer.start()
+            break
+        except Exception as e:
+            if attempt == max_retries - 1:
+                logger.error(
+                    "Failed to start Kafka consumer after multiple attempts",
+                    error=str(e),
+                )
+                raise
+            logger.warning(
+                "Failed to connect to Kafka, retrying...",
+                attempt=attempt + 1,
+                error=str(e),
+            )
+            await asyncio.sleep(2)
+
     logger.info(
         "consumer_started",
         topics=[
