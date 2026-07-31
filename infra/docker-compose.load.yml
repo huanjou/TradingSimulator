@@ -113,6 +113,7 @@ services:
     environment:
       - POSTGRES_URL=postgresql+asyncpg://test_user:test_password@test-db:5432/test_db
       - REDIS_URL=redis://test-redis:6379/0
+      - JWT_SECRET=test_secret_for_tests
       - ENV=test
     depends_on:
       test-db:
@@ -213,6 +214,7 @@ services:
       - KAFKA_BROKER=test-kafka:9092
       - KAFKA_WALLET_COMMANDS_TOPIC=wallet_commands
       - REDIS_URL=redis://test-redis:6379/0
+      - JWT_SECRET=test_secret_for_tests
       - ENVIRONMENT=test
     depends_on:
       test-kafka:
