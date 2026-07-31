@@ -272,11 +272,12 @@ services:
       retries: 5
 
   # ==========================================
-  # НАБЛЮДАЕМОСТЬ (не публикуем наружу; доступ через SSH-туннель/VPN)
+  # НАБЛЮДАЕМОСТЬ (доступ только через SSH-туннель к 127.0.0.1)
   # ==========================================
   jaeger:
     restart: always
-    ports: !reset []
+    ports:
+      - "127.0.0.1:16686:16686"
 
   otel-collector:
     restart: always
@@ -284,7 +285,8 @@ services:
 
   prometheus:
     restart: always
-    ports: !reset []
+    ports:
+      - "127.0.0.1:9090:9090"
 
   loki:
     restart: always
@@ -303,7 +305,8 @@ services:
 
   grafana:
     restart: always
-    ports: !reset []
+    ports:
+      - "127.0.0.1:3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       - GF_USERS_ALLOW_SIGN_UP=false
