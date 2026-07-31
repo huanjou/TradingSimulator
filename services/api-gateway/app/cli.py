@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import json
 import os
 
 from app.core.kafka import kafka_client
@@ -42,10 +43,14 @@ def main():
     args = parser.parse_args()
 
     if args.command == "seed-symbols":
-        symbols_str = args.symbols or os.getenv(
-            "DEFAULT_SYMBOLS", "BTC/USD,ETH/USD,SOL/USD"
-        )
-        symbols_list = symbols_str.split(",")
+        if os.path.exists("/config/seed/symbols.json"):
+            with open("/config/seed/symbols.json", "r") as f:
+                symbols_list = json.load(f)
+        else:
+            symbols_str = args.symbols or os.getenv(
+                "DEFAULT_SYMBOLS", "BTC/USD,ETH/USD,SOL/USD"
+            )
+            symbols_list = symbols_str.split(",")
         asyncio.run(seed_symbols(symbols_list))
     else:
         parser.print_help()

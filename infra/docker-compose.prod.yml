@@ -363,7 +363,8 @@ services:
           cpus: '0.25'
           memory: 256M
     ports: !reset []
-    volumes: !reset []
+    volumes:
+      - ../config/seed/symbols.json:/config/seed/symbols.json:ro
     environment:
       - ENV=production
       - LOG_LEVEL=INFO
@@ -505,7 +506,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    volumes: !reset []
+    volumes:
+      - ../config/seed/symbols.json:/config/seed/symbols.json:ro
     environment:
       - ENV=production
       - LOG_LEVEL=INFO

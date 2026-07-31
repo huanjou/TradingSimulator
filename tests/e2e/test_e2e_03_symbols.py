@@ -7,11 +7,21 @@ def test_get_symbols_default_list():
     assert resp.status_code == 200, f"Failed to get symbols: {resp.text}"
     symbols = resp.json()
     assert isinstance(symbols, list)
-    assert len(symbols) >= 3, f"Expected at least 3 symbols, got {symbols}"
+    assert len(symbols) >= 10
 
-    symbol_names = [s["name"] for s in symbols]
-    for expected in ["BTC/USD", "ETH/USD", "SOL/USD"]:
-        assert expected in symbol_names, f"{expected} missing from symbols list"
+    import json
+    import os
+
+    symbols_path = os.path.join(
+        os.path.dirname(__file__), "../../config/seed/symbols.json"
+    )
+    with open(symbols_path, "r") as f:
+        expected_symbols = json.load(f)
+
+    for expected in expected_symbols:
+        assert any(
+            item["name"] == expected for item in symbols
+        ), f"{expected} missing from symbols list"
 
     for s in symbols:
         assert s["is_active"] is True

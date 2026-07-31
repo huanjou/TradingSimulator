@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
 import { SymbolData } from '@/components/MarketsList';
 
-const API_BASE = 'http://nginx/api/v1';
+const USER_API_BASE = 'http://user-service:8000/api/v1';
+const QUERY_API_BASE = 'http://query-service:8000/api/v1';
 
 export async function fetchUserInSSR() {
   const cookieStore = cookies();
@@ -14,7 +15,7 @@ export async function fetchUserInSSR() {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/users/me`, {
+    const res = await fetch(`${USER_API_BASE}/users/me`, {
       headers: {
         Cookie: `access_token=${token.value}`,
       },
@@ -37,7 +38,7 @@ export async function fetchUserInSSR() {
 
 export async function fetchInitialSymbols(): Promise<SymbolData[]> {
   try {
-    const res = await fetch(`${API_BASE}/symbols?limit=30&offset=0`, {
+    const res = await fetch(`${QUERY_API_BASE}/symbols?limit=30&offset=0`, {
       cache: 'no-store', // Always fetch fresh list of markets
     });
 

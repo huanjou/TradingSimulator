@@ -259,6 +259,7 @@ services:
              fi"
     volumes:
       - ../services/api-gateway:/app
+      - ../config/seed/symbols.json:/config/seed/symbols.json:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -405,7 +406,6 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_MARKET_DATA_TOPIC=market_data
       - MARKET_PROVIDER=binance
-      - MARKET_SYMBOLS=BTC/USD,ETH/USD,SOL/USD
       - ENV=${APP_ENV:-development}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
@@ -413,6 +413,7 @@ services:
         condition: service_healthy
     volumes:
       - ../services/market-data:/app
+      - ../config/seed/symbols.json:/config/seed/symbols.json:ro
     networks:
       - exchange_net
     healthcheck:

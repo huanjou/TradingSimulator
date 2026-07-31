@@ -21,9 +21,10 @@ class AdminService:
         )
 
         try:
-            # We await send_event which buffers it, but KafkaProducerClient handles propagation
+            # We await send_event which with
+            # wait_for_ack=True handles synchronous propagation
             await self.kafka_client.send_event(
-                topic="system_events", value=event.model_dump()
+                topic="system_events", value=event.model_dump(), wait_for_ack=True
             )
             logger.info(
                 "Published SYMBOL_CREATED event", symbol=symbol, event_id=event.event_id

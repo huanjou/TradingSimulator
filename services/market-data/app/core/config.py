@@ -1,4 +1,15 @@
+import json
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def load_market_symbols() -> str:
+    if os.path.exists("/config/seed/symbols.json"):
+        with open("/config/seed/symbols.json", "r") as f:
+            symbols = json.load(f)
+            return ",".join(symbols)
+    return "BTC/USD,ETH/USD"
 
 
 class Settings(BaseSettings):
@@ -7,7 +18,7 @@ class Settings(BaseSettings):
 
     # Provider config
     MARKET_PROVIDER: str = "binance"
-    MARKET_SYMBOLS: str = "BTC/USD,ETH/USD"
+    MARKET_SYMBOLS: str = load_market_symbols()
 
     # Dependencies
     QUERY_SERVICE_URL: str = "http://query-service:8000"

@@ -31,7 +31,11 @@ class KafkaProducerClient:
             logger.info("Kafka Producer stopped.")
 
     async def send_event(
-        self, topic: str, value: dict[str, Any], key: bytes | None = None
+        self,
+        topic: str,
+        value: dict[str, Any],
+        key: bytes | None = None,
+        wait_for_ack: bool = False,
     ):
         """Publish an event to a specific Kafka topic."""
         if not self.producer:
@@ -44,9 +48,12 @@ class KafkaProducerClient:
         propagate.inject(headers_dict)
         kafka_headers = [(k, v.encode("utf-8")) for k, v in headers_dict.items()]
 
-        # We await the send coroutine to add to the buffer
-        # (it returns a Future for delivery)
-        await self.producer.send(topic, value=value, key=key, headers=kafka_headers)
+        if wait_for_ack:
+            await self.producer.send_and_wait(
+                topic, value=value, key=key, headers=kafka_headers
+            )
+        else:
+            await self.producer.send(topic, value=value, key=key, headers=kafka_headers)
         logger.debug(f"Event published to topic {topic}")
 
 
