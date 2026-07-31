@@ -8,8 +8,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-<!-- TODO: add screenshot -->
-<!-- ![TradingSimulator Dashboard](docs/assets/screenshot.png) -->
+<img width="2552" height="1267" alt="image" src="https://github.com/user-attachments/assets/0033b5ed-100f-4870-8009-94b909c8d730" />
+<img width="1176" height="1187" alt="image" src="https://github.com/user-attachments/assets/7dc70ea5-a4ad-495e-963d-076af5237f07" />
 
 ---
 
