@@ -9,6 +9,10 @@ from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
+# Last-known-price keys expire after this long so read APIs never serve
+# prices that are stale by more than a day (e.g. after prolonged downtime).
+LAST_PRICE_TTL_SECONDS = 24 * 60 * 60
+
 
 class KafkaWorker:
     def __init__(self):
@@ -81,6 +85,14 @@ class KafkaWorker:
                         channel = f"market_data:{symbol}"
                         # Forward raw bytes to Redis
                         await self.redis_client.publish(channel, data_bytes)
+                        # Persist the last known tick so read APIs (e.g. the
+                        # symbols endpoint) can serve a price immediately on
+                        # page load, before the first live update arrives.
+                        await self.redis_client.set(
+                            f"last_price:{symbol}",
+                            data_bytes,
+                            ex=LAST_PRICE_TTL_SECONDS,
+                        )
                 except (orjson.JSONDecodeError, AttributeError) as e:
                     logger.warning("Invalid message payload", error=str(e))
         except asyncio.CancelledError:

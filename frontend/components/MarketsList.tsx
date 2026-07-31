@@ -9,6 +9,7 @@ import api from '@/lib/axios';
 export interface SymbolData {
   name: string;
   is_active: boolean;
+  last_price?: number | null;
 }
 
 interface MarketsListProps {
@@ -65,9 +66,23 @@ const PriceCell = ({ price }: { price?: number }) => {
   );
 };
 
+const seedPricesFrom = (symbolList: SymbolData[]): Record<string, number> => {
+  const seeded: Record<string, number> = {};
+  for (const s of symbolList) {
+    if (s.last_price !== undefined && s.last_price !== null) {
+      seeded[s.name] = s.last_price;
+    }
+  }
+  return seeded;
+};
+
 export default function MarketsList({ initialSymbols }: MarketsListProps) {
   const [symbols, setSymbols] = useState<SymbolData[]>(initialSymbols);
-  const [prices, setPrices] = useState<Record<string, number>>({});
+  // Seed with last known prices from the API so prices are visible
+  // immediately on page load; live stream updates overwrite them.
+  const [prices, setPrices] = useState<Record<string, number>>(() =>
+    seedPricesFrom(initialSymbols),
+  );
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialSymbols.length === 30);
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,6 +106,9 @@ export default function MarketsList({ initialSymbols }: MarketsListProps) {
       }
 
       setSymbols((prev) => (append ? [...prev, ...newSymbols] : newSymbols));
+      // Seed last known prices for newly loaded symbols without
+      // clobbering fresher values already received from the stream.
+      setPrices((prev) => ({ ...seedPricesFrom(newSymbols), ...prev }));
     } catch (err) {
       console.error('Failed to fetch symbols', err);
     } finally {
