@@ -37,7 +37,7 @@ services:
         reservations:
           cpus: '1'
           memory: 1G
-    ports: !reset []
+    ports: !override []
     volumes:
       - pg_primary_data:/bitnami/postgresql
       - ./postgres/init-replication-slot.sh:/docker-entrypoint-initdb.d/00-replication-slot.sh:ro
@@ -67,7 +67,7 @@ services:
         reservations:
           cpus: '1'
           memory: 1G
-    ports: !reset []
+    ports: !override []
     environment:
       POSTGRESQL_REPLICATION_MODE: slave
       POSTGRESQL_REPLICATION_USER: ${POSTGRES_REPLICA_USER:?POSTGRES_REPLICA_USER is required}
@@ -263,7 +263,7 @@ services:
         reservations:
           cpus: '0.5'
           memory: 256M
-    ports: !reset []
+    ports: !override []
     command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --save 60 1 --loglevel warning
     healthcheck:
       test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
@@ -276,36 +276,36 @@ services:
   # ==========================================
   jaeger:
     restart: always
-    ports: !reset
+    ports: !override
       - "127.0.0.1:16686:16686"
 
   otel-collector:
     restart: always
-    ports: !reset []
+    ports: !override []
 
   prometheus:
     restart: always
-    ports: !reset
+    ports: !override
       - "127.0.0.1:9090:9090"
 
   loki:
     restart: always
-    ports: !reset []
+    ports: !override []
 
   cadvisor:
     restart: always
-    ports: !reset []
+    ports: !override []
 
   node-exporter:
     restart: always
-    ports: !reset []
+    ports: !override []
 
   promtail:
     restart: always
 
   grafana:
     restart: always
-    ports: !reset
+    ports: !override
       - "127.0.0.1:3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
@@ -365,7 +365,7 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    ports: !reset []
+    ports: !override []
     volumes:
       - ../config/seed/symbols.json:/config/seed/symbols.json:ro
     environment:
@@ -397,7 +397,7 @@ services:
         reservations:
           cpus: '0.5'
           memory: 256M
-    volumes: !reset []
+    volumes: !override []
     depends_on: !override
       pgbouncer:
         condition: service_healthy
@@ -424,7 +424,7 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    volumes: !reset []
+    volumes: !override []
     environment:
       - ENV=production
       - LOG_LEVEL=INFO
@@ -450,8 +450,8 @@ services:
         reservations:
           cpus: '0.5'
           memory: 256M
-    ports: !reset []
-    volumes: !reset []
+    ports: !override []
+    volumes: !override []
     depends_on:
       pgbouncer:
         condition: service_healthy
@@ -477,7 +477,7 @@ services:
         reservations:
           cpus: '1'
           memory: 512M
-    volumes: !reset []
+    volumes: !override []
     depends_on: !override
       pgbouncer:
         condition: service_healthy
@@ -533,8 +533,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    ports: !reset []
-    volumes: !reset []
+    ports: !override []
+    volumes: !override []
     environment:
       - LOG_LEVEL=INFO
       - BACKEND_CORS_ORIGINS=["${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}"]
@@ -564,8 +564,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
-    ports: !reset []
-    volumes: !reset []
+    ports: !override []
+    volumes: !override []
     environment:
       - LOG_LEVEL=INFO
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
@@ -592,8 +592,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    ports: !reset []
-    volumes: !reset []
+    ports: !override []
+    volumes: !override []
     depends_on:
       pgbouncer:
         condition: service_healthy
@@ -622,8 +622,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    ports: !reset []
-    volumes: !reset []
+    ports: !override []
+    volumes: !override []
     environment:
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
@@ -656,8 +656,8 @@ services:
         reservations:
           cpus: '0.25'
           memory: 256M
-    ports: !reset []
-    volumes: !reset []
+    ports: !override []
+    volumes: !override []
     environment:
       - NODE_ENV=production
 
