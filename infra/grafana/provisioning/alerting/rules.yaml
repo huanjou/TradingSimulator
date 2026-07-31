@@ -3,7 +3,7 @@ apiVersion: 1
 groups:
   - orgId: 1
     name: "System Reliability Alerts"
-    folder: "General"
+    folder: "System Alerts"
     interval: 10s
     rules:
       - uid: "api_gateway_latency"
