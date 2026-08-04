@@ -154,6 +154,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m"
+      KAFKA_LOG_RETENTION_HOURS: 12
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
     volumes:
       - kafka-1-data:/tmp/kafka-logs
     networks:
@@ -195,6 +197,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m"
+      KAFKA_LOG_RETENTION_HOURS: 12
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
     volumes:
       - kafka-2-data:/tmp/kafka-logs
     networks:
@@ -236,6 +240,8 @@ services:
       KAFKA_MIN_INSYNC_REPLICAS: 2
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m"
+      KAFKA_LOG_RETENTION_HOURS: 12
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
     volumes:
       - kafka-3-data:/tmp/kafka-logs
     networks:
