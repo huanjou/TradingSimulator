@@ -115,4 +115,4 @@ setup:
 	pre-commit install
 
 security-scan:
-	docker run --rm -v "$(CURDIR):/rootfs" aquasec/trivy:latest fs /rootfs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH --ignore-unfixed --skip-dirs "**/.venv" --skip-dirs "**/.git"
+	docker run --rm -v "$(CURDIR):/rootfs" aquasec/trivy:latest fs /rootfs --scanners vuln,secret,misconfig --severity CRITICAL,HIGH --ignore-unfixed --skip-dirs "**/.venv" --skip-dirs "**/.git" --timeout 15m
